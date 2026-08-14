@@ -1,7 +1,7 @@
 ---
 title: Supported Capabilities
 position: 80
-last-updated: August 5, 2026
+last-updated: August 12, 2026
 ---
 
 DSX Agent Gateway supports authenticated Model Context Protocol (MCP) discovery and invocation across direct and bridged request paths. A configured MCP server can expose fewer capabilities than the gateway supports.
@@ -14,18 +14,36 @@ Use bridge routing when an entry gateway must reach MCP servers through gateways
 
 ## MCP Method Support
 
-The following table defines the supported Agent Gateway method profile. Methods outside this table are not part of the documented support profile.
+The following tables define the supported Agent Gateway method profile. Methods outside these tables are not part of the documented support profile.
+
+### Session and Protocol Methods
+
+The following table covers session and protocol methods.
 
 | Capability | Direct target | Bridge target |
 | ---------- | ------------- | ------------- |
 | `initialize` | Supported for sessionful clients. | Supported and handled by the hub with stateless capabilities. |
 | `ping` | Supported. | Supported and handled by the hub. |
 | JSON-RPC notifications | Supported according to the negotiated client protocol. | Supported notifications return HTTP `202` with no body. |
+
+### Tools and Prompts
+
+The following table covers tool and prompt discovery, invocation, and completion.
+
+| Capability | Direct target | Bridge target |
+| ---------- | ------------- | ------------- |
 | `tools/list` | Supported with tenant filtering, pagination, and target-qualified names. | Supported from one reachable leaf catalog with an injected `shard_id` input. |
 | `tools/call` | Supported for authorized discovered and static targets. | Supported with an explicit `shard_id`, JSON responses, and streamed responses. |
 | `prompts/list` | Supported with tenant filtering and target-qualified names. | Supported from one reachable leaf catalog with an injected `shard_id` argument. |
 | `prompts/get` | Supported for authorized targets. | Supported with an explicit `shard_id`. |
 | Prompt `completion/complete` | Supported when the selected target advertises prompt completion. | Supported with an explicit `shard_id`. |
+
+### Resources
+
+The following table covers resource discovery, access, and completion.
+
+| Capability | Direct target | Bridge target |
+| ---------- | ------------- | ------------- |
 | `resources/list` | Supported when an authorized direct target advertises resources. | Not supported. |
 | `resources/templates/list` | Supported when an authorized direct target advertises resource templates. | Not supported. |
 | `resources/read` | Supported for a target-qualified direct resource URI. | Not supported. |
@@ -48,7 +66,7 @@ The bridge adds `dsx_bridge_list_shards` to its tool catalog. Clients use this t
 
 The supported authentication and isolation profile includes the following controls:
 
-- Verification of JWT signatures, issuers, audiences, expiration, and token structure.
+- Verification of JSON Web Token (JWT) signatures, issuers, audiences, expiration, and token structure.
 - Tenant derivation from verified JWT claims through a configured Common Expression Language expression.
 - Full target access for one configured operator tenant.
 - Allowlisted target access for every other authenticated tenant.

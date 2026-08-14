@@ -1,7 +1,7 @@
 ---
 title: Publish an MCP Server
 position: 40
-last-updated: August 5, 2026
+last-updated: August 13, 2026
 ---
 
 Use this guide to make a Model Context Protocol (MCP) server available through DSX Agent Gateway. You can discover a Kubernetes Service by labels or configure a server with a static address.
@@ -18,9 +18,20 @@ Use the [architecture guide](architecture.mdx) for the complete direct and bridg
 
 Your server must implement MCP over Streamable HTTP at `/mcp` and advertise only capabilities that it supports.
 
-<Note>
-Static upstreams can use the legacy `SSE` protocol when required. Use `StreamableHTTP` for new servers.
-</Note>
+<Tip>
+Static upstreams can use the legacy Server-Sent Events (SSE) transport when required. Use Streamable HTTP for new servers.
+</Tip>
+
+## Choose an Upstream Type
+
+Choose the upstream type that matches how the gateway reaches the MCP server:
+
+| Upstream Type | Use When | Runtime Target Name | Required Configuration |
+| ------------- | -------- | ------------------- | ---------------------- |
+| Selector | The gateway can discover a Kubernetes Service by namespace and labels. | `<service-name>-<port-name>` | A Service namespace, matching labels, and a named port with `appProtocol: agentgateway.dev/mcp`. |
+| Static | The server has a stable HTTP or HTTPS address. | The `upstreams` map key. | A complete address and an optional transport protocol. |
+
+Use the selector workflow for a Kubernetes Service. Use the static workflow when Service discovery cannot represent the target.
 
 ## Publish a Kubernetes Service
 

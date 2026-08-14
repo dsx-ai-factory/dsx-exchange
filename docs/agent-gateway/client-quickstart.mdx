@@ -2,7 +2,7 @@
 title: MCP Client Quickstart
 sidebar-title: Client Quickstart
 position: 30
-last-updated: August 5, 2026
+last-updated: August 14, 2026
 ---
 
 Use this guide to open a Model Context Protocol (MCP) session, discover tools, and call one tool through DSX Agent Gateway. The gateway uses the Streamable HTTP transport at `/mcp`.
@@ -13,7 +13,7 @@ For application code, use an MCP client library that supports Streamable HTTP. U
 
 Obtain the following values from the gateway operator:
 
-- The complete HTTPS gateway endpoint, including `/mcp`.
+- The complete HTTPS gateway endpoint URL, including `/mcp`.
 - A bearer token from a JSON Web Token (JWT) provider configured for the gateway.
 - Access to at least one MCP target.
 
@@ -68,7 +68,7 @@ Open the Inspector's **Tools** view after the connection succeeds. Select a targ
 
 <Step title="Set the Connection Details">
 
-Install `curl` 8.3.0 or later, `jq`, and `awk` before you run the examples. The examples import the token into `curl` without expanding it in the shell command.
+Open a Bash shell. Install `curl` 8.3.0 or later, `jq`, and `awk` before you run the examples. The examples import the token into `curl` without expanding it in the shell command.
 
 Set the gateway endpoint. Enter the bearer token at the hidden prompt to keep it out of your shell history.
 
@@ -201,6 +201,17 @@ The gateway forwards the caller's original `Authorization` header to the selecte
 Send the same `Mcp-Session-Id` and bearer token with every request in one session. Do not share a session ID between identities or workloads. Initialize a new session after the bearer identity changes or the gateway rejects the previous session ID.
 
 An MCP client library handles the session header, JSON or SSE response framing, and transport cleanup. Release the client transport when the workflow finishes.
+
+After manual verification, remove the temporary response files and unset the session credentials:
+
+```bash
+if [[ -n "${DSX_AGENT_GATEWAY_TMP:-}" && -d "${DSX_AGENT_GATEWAY_TMP}" ]]; then
+  rm -r -- "${DSX_AGENT_GATEWAY_TMP}"
+fi
+unset DSX_AGENT_GATEWAY_TMP
+unset DSX_AGENT_GATEWAY_SESSION_ID
+unset DSX_AGENT_GATEWAY_TOKEN
+```
 
 </Step>
 
