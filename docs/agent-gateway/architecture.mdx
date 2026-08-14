@@ -2,10 +2,10 @@
 title: DSX Agent Gateway Architecture
 sidebar-title: Architecture
 position: 20
-last-updated: August 5, 2026
+last-updated: August 14, 2026
 ---
 
-DSX Agent Gateway provides a policy enforcement and routing layer between MCP clients and MCP servers. Without bridge routing, the gateway sends requests to targets that it can reach. The optional bridge extends selected requests to remote gateway shards through the DSX Event Bus.
+DSX Agent Gateway provides a policy enforcement and routing layer between Model Context Protocol (MCP) clients and MCP servers. Without bridge routing, the gateway sends requests to targets that it can reach. The optional bridge extends selected requests to remote gateway shards through the DSX Event Bus. (Refer to [Sessions and State](#sessions-and-state) for more details on the differences between direct and bridged requests.)
 
 ## Components
 
@@ -105,11 +105,14 @@ The bridge supports JSON responses and streamed Server-Sent Events (SSE) for rou
 
 Direct and bridged requests have different state boundaries.
 
-For direct routing, a client can initialize a streamable HTTP MCP session and reuse its `Mcp-Session-Id` value. Selector-mode routing keeps that session associated with one discovered upstream endpoint. The dataplane preserves this upstream association when a later request reaches another gateway replica.
+The following table compares session and state behavior for each request path:
 
-The bridge does not extend the caller's MCP session into a remote shard. The hub and leaves remove `Mcp-Session-Id` before the leaf calls its local gateway. Remote requests are independent, stateless MCP requests.
-
-The hub handles `initialize` and `ping` locally. It also accepts supported JSON-RPC notifications without forwarding session state. Methods that require server-side MCP session state, client state, or resource-path routing are not available through the bridge.
+| State Concern | Direct Routing | Bridge Routing |
+| ------------- | -------------- | -------------- |
+| MCP session | A client can initialize a Streamable HTTP session and reuse its `Mcp-Session-Id`. | The bridge does not extend the caller's session into a remote shard. The hub and leaves remove `Mcp-Session-Id` before the leaf calls its local gateway. |
+| Upstream association | Selector routing associates the session with one discovered endpoint. The dataplane preserves the association across gateway replicas. | Each remote request is an independent, stateless MCP request. |
+| Protocol handling | The selected target handles methods within the negotiated client session. | The hub handles `initialize` and `ping` locally. It accepts supported JSON-RPC notifications without forwarding session state. |
+| Stateful methods | The selected target can use server-side MCP session state. | Methods that require server-side MCP session state, client state, or resource-path routing are unavailable. |
 
 For an active SSE response, one bridge leaf owns temporary stream state without creating an MCP session in the remote shard.
 
