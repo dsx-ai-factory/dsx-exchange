@@ -14,7 +14,7 @@ make test
 
 ## Checklist
 
-- [ ] I am familiar with the [Contributing Guidelines](https://github.com/NVIDIA/dsx-exchange/blob/main/CONTRIBUTING.md).
+- [ ] I am familiar with the [Contributing Guidelines](https://github.com/dsx-ai-factory/dsx-exchange/blob/main/CONTRIBUTING.md).
 - [ ] Documentation updated, if needed.
 - [ ] Tests or validation added/updated, if needed.
 - [ ] License headers are present on applicable source files.

@@ -13,6 +13,10 @@ instances:
 
 title: DSX Exchange
 
+navbar-links:
+  - type: github
+    value: https://github.com/dsx-ai-factory/dsx-exchange
+
 announcement:
   message: "🔔 DSX Exchange is a <strong>developer preview</strong>. APIs and behavior may change without notice."
 
@@ -26,14 +30,6 @@ check:
 
 settings:
   folder-title-source: frontmatter
-
-layout:
-  searchbar-placement: header
-  page-width: 1376px
-  sidebar-width: 248px
-  content-width: 812px
-  tabs-placement: header
-  hide-feedback: true
 
 navigation:
   - section: DSX Exchange

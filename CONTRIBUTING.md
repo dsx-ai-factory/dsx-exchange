@@ -29,7 +29,7 @@ Fork and clone the repository:
 ```bash
 git clone https://github.com/<your-username>/dsx-exchange.git
 cd dsx-exchange
-git remote add upstream https://github.com/NVIDIA/dsx-exchange.git
+git remote add upstream https://github.com/dsx-ai-factory/dsx-exchange.git
 ```
 
 Keep changes focused. Use a separate branch for each concern:

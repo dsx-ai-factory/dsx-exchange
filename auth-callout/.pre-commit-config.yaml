@@ -133,7 +133,7 @@ repos:
         stages: [pre-commit]
         args:
           - -w
-          - -local=github.com/NVIDIA/dsx-exchange
+          - -local=github.com/dsx-ai-factory/dsx-exchange
           - -d=false
       #   - id: go-imports-repo # replaces go-fmt-repo
       #   - id: go-returns # replaces go-imports & go-fmt
