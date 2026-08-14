@@ -2,7 +2,7 @@
 title: Deploy DSX Agent Gateway
 sidebar-title: Deployment
 position: 50
-last-updated: August 5, 2026
+last-updated: August 14, 2026
 ---
 
 Use the DSX Agent Gateway Helm chart to deploy Model Context Protocol (MCP) ingress on Kubernetes. This workflow installs a direct-routing deployment that you can extend with an optional bridge.
@@ -21,7 +21,7 @@ The chart creates a plaintext HTTP listener on port `80`. The default dataplane 
 
 ## Prerequisites
 
-Prepare the following software and cluster resources:
+Prepare the following software and cluster resources for every deployment:
 
 - A Kubernetes cluster that can run the required workloads.
 - Helm and `kubectl` configured for the target cluster.
@@ -30,9 +30,14 @@ Prepare the following software and cluster resources:
 - A reachable JSON Web Key Set endpoint for each JSON Web Token provider.
 - Each MCP Service or static MCP endpoint that the gateway must expose.
 - An external edge that can route HTTPS requests to the gateway Service.
-- A reachable NATS Service when you enable the bridge.
 
-The chart does not install the required CRDs. Metrics require Prometheus Operator CRDs. Tracing requires the configured OpenTelemetry Operator `Instrumentation` and sidecar Collector resources.
+Prepare the following resources when you enable the associated feature:
+
+- **Bridge:** A reachable in-cluster NATS Service.
+- **Metrics:** Prometheus Operator custom resource definitions when `observability.metrics.enabled` is `true`.
+- **Tracing:** The configured OpenTelemetry Operator `Instrumentation` and sidecar Collector resources when `observability.tracing.enabled` is `true`.
+
+The chart does not install the required custom resource definitions.
 
 ## Install the CRDs
 
