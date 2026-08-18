@@ -48,7 +48,7 @@ integration application, start with the
 [Integrator Quickstart](https://docs.nvidia.com/dsx-exchange/integrator-quickstart).
 
 To deploy or integrate with DSX Agent Gateway, start with the
-[DSX Agent Gateway overview](https://docs.nvidia.com/dsx-exchange/agent-gateway/overview).
+[DSX Agent Gateway overview](https://docs.nvidia.com/dsx-exchange/agent-gateway).
 
 Publish looping dummy BMS data into the local CSC MQTT broker:
 

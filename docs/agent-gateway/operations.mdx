@@ -2,7 +2,7 @@
 title: Operate DSX Agent Gateway
 sidebar-title: Operations
 position: 60
-last-updated: August 14, 2026
+last-updated: August 17, 2026
 ---
 
 Monitor DSX Agent Gateway as one request path that includes the Kubernetes Gateway, dataplane Pods, rate-limit path, upstreams, and optional bridge. The [deployment guide](deployment.mdx) contains the installation and configuration procedures.
@@ -16,7 +16,7 @@ Use the following table to start with the symptom that you observe:
 | Gateway not programmed. | [Troubleshoot Gateway Programming](#troubleshoot-gateway-programming) |
 | Gateway rejects authentication or target access. | [Troubleshoot Authentication and Target Access](#troubleshoot-authentication-and-target-access) |
 | An MCP target is missing or unavailable. | [Troubleshoot Missing MCP Targets](#troubleshoot-missing-mcp-targets) |
-| A request returns HTTP 429, or the rate-limit path fails. | [Troubleshoot Rate Limiting and Valkey](#troubleshoot-rate-limiting-and-valkey) |
+| A request returns HTTP `429`, or the rate-limit path fails. | [Troubleshoot Rate Limiting and Valkey](#troubleshoot-rate-limiting-and-valkey) |
 | A bridge Pod is not ready, or a remote shard is unavailable. | [Troubleshoot the Bridge](#troubleshoot-the-bridge) |
 
 ## Check Gateway Status
@@ -178,7 +178,7 @@ If the Gateway does not become `Programmed`, check these conditions:
 1. Inspect controller logs for rejected resources or synchronization failures.
 1. Render the chart with the active values to identify validation errors.
 
-Render the release configuration locally:
+The `helm template` command requires a local clone of the [DSX Exchange repository](https://github.com/dsx-ai-factory/dsx-exchange). Render the release configuration locally, from the repository root:
 
 ```bash
 helm template dsx-agent-gateway deploy/dsx-agent-gateway \
@@ -235,7 +235,7 @@ A hub with no completed shard discovery remains unready. Verify that each expect
 
 ## Upgrade and Roll Back
 
-Record the chart version, values file, CRD versions, and Helm revision before an upgrade. Review Agent Gateway and Valkey compatibility before changing pinned dependency versions. Upgrade with the same release name and complete values file:
+Record the chart version, values file, CRD versions, and Helm revision before an upgrade. Review Agent Gateway and Valkey compatibility before changing pinned dependency versions. From the DSX Exchange repository root, upgrade with the same `deploy/dsx-agent-gateway` chart path, release name, and complete values file:
 
 ```bash
 helm upgrade dsx-agent-gateway deploy/dsx-agent-gateway \

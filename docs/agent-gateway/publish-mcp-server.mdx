@@ -70,7 +70,7 @@ upstreams:
       app.kubernetes.io/name: inventory-mcp
 ```
 
-The upstream entry name identifies the selector configuration. The discovered MCP target name is `<service-name>-<port-name>`. The example Service creates the target `inventory-mcp`.
+The upstream entry name identifies the selector configuration. The discovered MCP target name is `<service-name>-<port-name>`. The example Service is named `inventory` and its port is named `mcp`, so it creates the target `inventory-mcp`. Service labels select the Service, but they do not contribute to the target name.
 
 The bundled Agent Gateway controller watches all namespaces by default. If the deployment restricts discovery with `agentgateway.discoveryNamespaceSelectors`, include the MCP server namespace.
 
