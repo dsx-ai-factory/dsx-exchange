@@ -37,7 +37,7 @@ Clone the repository, install the local e2e prerequisites, and run the local
 validation checks:
 
 ```bash
-git clone https://github.com/NVIDIA/dsx-exchange.git
+git clone https://github.com/dsx-ai-factory/dsx-exchange.git
 cd dsx-exchange
 mise install --locked
 make test
@@ -97,7 +97,7 @@ DSX Exchange follows [Semantic Versioning](https://semver.org/) (`vX.Y.Z`), auto
 
 ### Roadmap
 
-Upcoming work is tracked in [GitHub Issues](https://github.com/NVIDIA/dsx-exchange/issues). See [CONTRIBUTING.md](CONTRIBUTING.md) for how to get involved.
+Upcoming work is tracked in [GitHub Issues](https://github.com/dsx-ai-factory/dsx-exchange/issues). See [CONTRIBUTING.md](CONTRIBUTING.md) for how to get involved.
 
 ## Contribution Guidelines
 
@@ -107,7 +107,7 @@ Upcoming work is tracked in [GitHub Issues](https://github.com/NVIDIA/dsx-exchan
 Development quickstart:
 
 ```bash
-git clone https://github.com/NVIDIA/dsx-exchange.git
+git clone https://github.com/dsx-ai-factory/dsx-exchange.git
 cd dsx-exchange
 mise install --locked
 make test
