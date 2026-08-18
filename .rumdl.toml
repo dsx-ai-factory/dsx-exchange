@@ -78,6 +78,8 @@ flavor = "mdx"
 # Sequential ordered list style also makes sense in the
 # Agents specs
 "**/AGENTS.md" = ["MD029"]
+"**/README.md" = ["MD029"]
+"**/WRITING.md" = ["MD029"]
 
 # Rule-specific configurations
 
