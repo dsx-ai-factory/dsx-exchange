@@ -19,7 +19,7 @@ DSX Exchange consists of the following components:
 | Auth-Callout Service | OAuth2/mTLS/NKey authentication with topic-level ACLs |
 
 <Info title="GitHub Repository">
-You can find the [DSX Exchange repository](https://github.com/NVIDIA/dsx-exchange) on GitHub.
+  The DSX Exchange GitHub repository is available at [https://github.com/dsx-ai-factory/dsx-exchange](https://github.com/dsx-ai-factory/dsx-exchange).
 </Info>
 
 ## DSX Event Bus

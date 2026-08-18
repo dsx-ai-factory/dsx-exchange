@@ -12,6 +12,10 @@ instances:
 
 title: DSX Exchange
 
+navbar-links:
+  - type: github
+    value: https://github.com/dsx-ai-factory/dsx-exchange
+
 announcement:
   message: "🔔 DSX Exchange is a <strong>developer preview</strong>. APIs and behavior may change without notice."
 

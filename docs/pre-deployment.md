@@ -5,7 +5,7 @@ Everything that must be in place before deploying the DSX Event Bus. This covers
 **Estimated time**: The production path (secrets pipeline + certificates) takes 4–6 hours for a first-time deployment across 1 CSC + 2 CPCs. The evaluation path (`local/` Makefile) takes ~10 minutes. See [Deployment — Evaluation Install](getting-started.md) for the quick-start option.
 
 <Info title="GitHub Repository">
-  The DSX Exchange GitHub repository is available at [https://github.com/NVIDIA/dsx-exchange](https://github.com/NVIDIA/dsx-exchange).
+  The DSX Exchange GitHub repository is available at [https://github.com/dsx-ai-factory/dsx-exchange](https://github.com/dsx-ai-factory/dsx-exchange).
 </Info>
 
 ## Host Prerequisites
