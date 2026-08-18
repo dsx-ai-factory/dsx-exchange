@@ -101,7 +101,7 @@ These examples use recurring DSX Exchange concepts.
 They show the required level of precision.
 
 | Surface | Avoid | Use |
-|---|---|---|
+| ------- | ----- | --- |
 | Code comment | `// Handle the edge case.` | `// Keep the listener disabled when the Gateway has no assigned address.` |
 | Code comment | `// This is needed for safety.` | `// Reject overlapping exports because they create cyclic NATS imports.` |
 | Code comment | `// Keep this in sync.` | `// This port must match the MQTT listener in the event-bus chart.` |
