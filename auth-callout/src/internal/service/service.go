@@ -9,8 +9,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
 	gorillaHandlers "github.com/gorilla/handlers"
@@ -210,10 +208,10 @@ func newHTTPServer(addr string, handler http.Handler, logger *zap.Logger) *http.
 	}
 }
 
-// Run starts the HTTP server and handles graceful shutdown on SIGINT or SIGTERM signals.
+// Run starts the HTTP server and handles graceful shutdown when ctx is canceled.
 // It sets up routes including health checks and authentication middleware.
-// The service will wait for interrupt signals and perform a graceful shutdown with a 5-second timeout.
-func (s *Service) Run() error {
+// The service waits for context cancellation and performs a graceful shutdown with a 5-second timeout.
+func (s *Service) Run(ctx context.Context) error {
 	// =================================================
 	// Put unauthenticated health routes here.
 	// =================================================
@@ -249,10 +247,10 @@ func (s *Service) Run() error {
 
 	// Create authorization handler
 	authorizerFn := func(req *jwt.AuthorizationRequest) (string, error) {
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		requestCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 		defer cancel()
-		ctx = obslogging.AttachLoggerToContext(ctx, s.logger)
-		return s.handleAuthRequest(ctx, req)
+		requestCtx = obslogging.AttachLoggerToContext(requestCtx, s.logger)
+		return s.handleAuthRequest(requestCtx, req)
 	}
 
 	// Configure callout service options
@@ -287,10 +285,7 @@ func (s *Service) Run() error {
 		}
 	}()
 
-	// Handle interrupts
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-	<-sigChan
+	<-ctx.Done()
 
 	// Graceful shutdown
 	s.logger.Warn("service is shutting down...")
