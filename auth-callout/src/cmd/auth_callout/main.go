@@ -8,6 +8,9 @@ import (
 	_ "embed"
 	"fmt"
 	"log"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/spf13/cobra"
 
@@ -55,8 +58,8 @@ var generateCmd = &cobra.Command{
 // runServer is the main entry point for running the service.
 // It loads configuration, sets up logging, tracing, and metrics, then creates
 // and runs the service instance.
-func runServer(_ *cobra.Command, _ []string) error {
-	ctx := context.Background()
+func runServer(cmd *cobra.Command, _ []string) error {
+	ctx := cmd.Context()
 	cfgManager := globalConfig
 
 	if err := cfgManager.Load(); err != nil {
@@ -89,10 +92,13 @@ func runServer(_ *cobra.Command, _ []string) error {
 
 	// Create and run server
 	svc := service.New(svcConfig, logger)
-	return svc.Run()
+	return svc.Run(ctx)
 }
 
 func main() {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
 	globalConfig = appconfig.New(defaultConfigYAML)
 	globalConfig.BindFlags(rootCmd)
 
@@ -100,7 +106,7 @@ func main() {
 	rootCmd.AddCommand(generateCmd)
 
 	// Execute the root command
-	if err := rootCmd.Execute(); err != nil {
+	if err := rootCmd.ExecuteContext(ctx); err != nil {
 		log.Fatalf("Failed to execute: %v", err)
 	}
 }
