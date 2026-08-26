@@ -590,6 +590,23 @@ func TestOAuth2RequiredScope(t *testing.T) {
 	}
 }
 
+func TestNewMTLSAuthenticatorRejectsEmptyCA(t *testing.T) {
+	permFile := createTestPermissionsFile(t)
+	defer os.Remove(permFile)
+
+	pm, err := config.NewPermissionsManager(permFile, testLogger())
+	require.NoError(t, err)
+	defer pm.Close()
+
+	_, err = NewMTLSAuthenticator(
+		[]byte{},
+		pm,
+		testLogger(),
+		testServiceName,
+	)
+	require.EqualError(t, err, "failed to parse CA certificate")
+}
+
 // TestMTLSAuthentication tests mTLS client certificate authentication
 func TestMTLSAuthentication(t *testing.T) {
 	permFile := createTestPermissionsFile(t)

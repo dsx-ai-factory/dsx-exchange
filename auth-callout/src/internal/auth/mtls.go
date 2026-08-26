@@ -30,14 +30,10 @@ type MTLSAuthenticator struct {
 // NewMTLSAuthenticator creates a new mTLS authenticator
 func NewMTLSAuthenticator(caPEM []byte, pm *config.PermissionsManager, logger *otelzap.Logger, serviceName string) (*MTLSAuthenticator, error) {
 	caPool := x509.NewCertPool()
-	if len(caPEM) > 0 {
-		if !caPool.AppendCertsFromPEM(caPEM) {
-			return nil, fmt.Errorf("failed to parse CA certificate")
-		}
-		logger.Info("mTLS authenticator initialized with CA certificate")
-	} else {
-		logger.Info("mTLS authenticator initialized without CA validation")
+	if !caPool.AppendCertsFromPEM(caPEM) {
+		return nil, fmt.Errorf("failed to parse CA certificate")
 	}
+	logger.Info("mTLS authenticator initialized with CA certificate")
 
 	return &MTLSAuthenticator{
 		pm:          pm,
@@ -74,24 +70,22 @@ func (m *MTLSAuthenticator) Authenticate(ctx context.Context, certPEM string) (*
 		return nil, fmt.Errorf("failed to parse certificate: %w", err)
 	}
 
-	// Validate against CA if configured
-	if m.caPool != nil && len(m.caPool.Subjects()) > 0 {
-		opts := x509.VerifyOptions{
-			Roots: m.caPool,
-			KeyUsages: []x509.ExtKeyUsage{
-				x509.ExtKeyUsageClientAuth,
-			},
+	// Validate against the configured CA
+	opts := x509.VerifyOptions{
+		Roots: m.caPool,
+		KeyUsages: []x509.ExtKeyUsage{
+			x509.ExtKeyUsageClientAuth,
+		},
+	}
+	if _, err := cert.Verify(opts); err != nil {
+		if counter, err := meter.Int64Counter("auth_mtls_failures_total",
+			metric.WithDescription("Total mTLS authentication failures")); err == nil {
+			counter.Add(ctx, 1, metric.WithAttributes(
+				attribute.String("method", "mtls"),
+				attribute.String("reason", "ca_validation_failed"),
+			))
 		}
-		if _, err := cert.Verify(opts); err != nil {
-			if counter, err := meter.Int64Counter("auth_mtls_failures_total",
-				metric.WithDescription("Total mTLS authentication failures")); err == nil {
-				counter.Add(ctx, 1, metric.WithAttributes(
-					attribute.String("method", "mtls"),
-					attribute.String("reason", "ca_validation_failed"),
-				))
-			}
-			return nil, fmt.Errorf("certificate validation failed: %w", err)
-		}
+		return nil, fmt.Errorf("certificate validation failed: %w", err)
 	}
 
 	// Extract identity from certificate
