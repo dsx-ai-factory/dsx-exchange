@@ -305,10 +305,10 @@ func (s *Service) Run(ctx context.Context) error {
 		s.logger.Error("error closing permissions manager", zap.Error(err))
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	if err := s.server.Shutdown(ctx); err != nil {
+	if err := s.server.Shutdown(shutdownCtx); err != nil {
 		errMsg := fmt.Sprintf("service shutdown failed: %s", err.Error())
 		s.logger.Error(errMsg, zap.Error(err))
 	} else {
