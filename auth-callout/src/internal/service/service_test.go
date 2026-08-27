@@ -54,6 +54,11 @@ func TestRunStopsWhenContextCanceled(t *testing.T) {
 	select {
 	case err := <-done:
 		require.NoError(t, err)
+		require.True(
+			t,
+			svc.natsConn.IsDraining() || svc.natsConn.IsClosed(),
+			"NATS connection was not drained",
+		)
 	case <-time.After(2 * time.Second):
 		t.Fatal("service did not stop after context cancellation")
 	}

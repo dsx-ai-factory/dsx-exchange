@@ -247,10 +247,10 @@ func (s *Service) Run(ctx context.Context) error {
 
 	// Create authorization handler
 	authorizerFn := func(req *jwt.AuthorizationRequest) (string, error) {
-		requestCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+		ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
 		defer cancel()
-		requestCtx = obslogging.AttachLoggerToContext(requestCtx, s.logger)
-		return s.handleAuthRequest(requestCtx, req)
+		ctx = obslogging.AttachLoggerToContext(ctx, s.logger)
+		return s.handleAuthRequest(ctx, req)
 	}
 
 	// Configure callout service options
