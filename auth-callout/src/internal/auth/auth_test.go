@@ -590,6 +590,23 @@ func TestOAuth2RequiredScope(t *testing.T) {
 	}
 }
 
+func TestNewMTLSAuthenticatorRejectsEmptyCA(t *testing.T) {
+	permFile := createTestPermissionsFile(t)
+	defer os.Remove(permFile)
+
+	pm, err := config.NewPermissionsManager(permFile, testLogger())
+	require.NoError(t, err)
+	defer pm.Close()
+
+	_, err = NewMTLSAuthenticator(
+		[]byte{},
+		pm,
+		testLogger(),
+		testServiceName,
+	)
+	require.EqualError(t, err, "failed to parse CA certificate")
+}
+
 // TestMTLSAuthentication tests mTLS client certificate authentication
 func TestMTLSAuthentication(t *testing.T) {
 	permFile := createTestPermissionsFile(t)
@@ -617,6 +634,34 @@ func TestMTLSAuthentication(t *testing.T) {
 	_, err = mtlsAuth.Authenticate(context.Background(), untrustedCertPEM)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "certificate validation failed")
+}
+
+func TestMTLSAuthenticationWithIntermediateCA(t *testing.T) {
+	permFile := createTestPermissionsFile(t)
+	defer os.Remove(permFile)
+
+	pm, err := config.NewPermissionsManager(permFile, testLogger())
+	require.NoError(t, err)
+	defer pm.Close()
+
+	rootCAPEM, rootCAKey := createTestCA(t)
+	intermediateCAPEM, intermediateCAKey := createIntermediateCA(t, rootCAPEM, rootCAKey)
+	clientCertPEM := createClientCert(t, "device1", intermediateCAPEM, intermediateCAKey)
+
+	mtlsAuth, err := NewMTLSAuthenticator(rootCAPEM, pm, testLogger(), testServiceName)
+	require.NoError(t, err)
+
+	rc := &jwt.AuthorizationRequestClaims{}
+	rc.TLS = &jwt.ClientTLS{
+		VerifiedChains: []jwt.StringList{
+			{clientCertPEM, string(intermediateCAPEM), string(rootCAPEM)},
+		},
+	}
+
+	profile, err := mtlsAuth.TryAuthenticate(context.Background(), rc)
+	require.NoError(t, err)
+	assert.Equal(t, "device1", profile.Name)
+	assert.Equal(t, "APP1", profile.Account)
 }
 
 // TestNKeyAuthentication tests NKey authentication
@@ -897,6 +942,34 @@ func createTestCA(t *testing.T) ([]byte, *rsa.PrivateKey) {
 	}
 
 	der, err := x509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
+	require.NoError(t, err)
+
+	return pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}), key
+}
+
+func createIntermediateCA(t *testing.T, caPEM []byte, caKey *rsa.PrivateKey) ([]byte, *rsa.PrivateKey) {
+	t.Helper()
+
+	block, _ := pem.Decode(caPEM)
+	require.NotNil(t, block)
+
+	caCert, err := x509.ParseCertificate(block.Bytes)
+	require.NoError(t, err)
+
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(t, err)
+
+	template := &x509.Certificate{
+		SerialNumber:          big.NewInt(time.Now().UnixNano()),
+		Subject:               pkix.Name{CommonName: "test-intermediate-ca"},
+		NotBefore:             time.Now().Add(-time.Minute),
+		NotAfter:              time.Now().Add(time.Hour),
+		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+	}
+
+	der, err := x509.CreateCertificate(rand.Reader, template, caCert, &key.PublicKey, caKey)
 	require.NoError(t, err)
 
 	return pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}), key

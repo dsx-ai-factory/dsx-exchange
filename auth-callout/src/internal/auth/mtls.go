@@ -30,14 +30,10 @@ type MTLSAuthenticator struct {
 // NewMTLSAuthenticator creates a new mTLS authenticator
 func NewMTLSAuthenticator(caPEM []byte, pm *config.PermissionsManager, logger *otelzap.Logger, serviceName string) (*MTLSAuthenticator, error) {
 	caPool := x509.NewCertPool()
-	if len(caPEM) > 0 {
-		if !caPool.AppendCertsFromPEM(caPEM) {
-			return nil, fmt.Errorf("failed to parse CA certificate")
-		}
-		logger.Info("mTLS authenticator initialized with CA certificate")
-	} else {
-		logger.Info("mTLS authenticator initialized without CA validation")
+	if !caPool.AppendCertsFromPEM(caPEM) {
+		return nil, fmt.Errorf("failed to parse CA certificate")
 	}
+	logger.Info("mTLS authenticator initialized with CA certificate")
 
 	return &MTLSAuthenticator{
 		pm:          pm,
@@ -52,8 +48,8 @@ func (m *MTLSAuthenticator) CanAuthenticate(rc *natsjwt.AuthorizationRequestClai
 	return rc.TLS != nil && len(rc.TLS.VerifiedChains) > 0
 }
 
-// Authenticate validates a client certificate and returns user profile
-func (m *MTLSAuthenticator) Authenticate(ctx context.Context, certPEM string) (*config.UserProfile, error) {
+// Authenticate validates a client certificate chain and returns user profile
+func (m *MTLSAuthenticator) Authenticate(ctx context.Context, certPEM string, intermediatePEMs ...string) (*config.UserProfile, error) {
 	meter := metrics.GetMeter(m.serviceName)
 
 	if counter, err := meter.Int64Counter("auth_mtls_attempts_total",
@@ -74,24 +70,30 @@ func (m *MTLSAuthenticator) Authenticate(ctx context.Context, certPEM string) (*
 		return nil, fmt.Errorf("failed to parse certificate: %w", err)
 	}
 
-	// Validate against CA if configured
-	if m.caPool != nil && len(m.caPool.Subjects()) > 0 {
-		opts := x509.VerifyOptions{
-			Roots: m.caPool,
-			KeyUsages: []x509.ExtKeyUsage{
-				x509.ExtKeyUsageClientAuth,
-			},
+	intermediates := x509.NewCertPool()
+	for _, intermediatePEM := range intermediatePEMs {
+		if !intermediates.AppendCertsFromPEM([]byte(intermediatePEM)) {
+			return nil, fmt.Errorf("failed to parse intermediate certificate")
 		}
-		if _, err := cert.Verify(opts); err != nil {
-			if counter, err := meter.Int64Counter("auth_mtls_failures_total",
-				metric.WithDescription("Total mTLS authentication failures")); err == nil {
-				counter.Add(ctx, 1, metric.WithAttributes(
-					attribute.String("method", "mtls"),
-					attribute.String("reason", "ca_validation_failed"),
-				))
-			}
-			return nil, fmt.Errorf("certificate validation failed: %w", err)
+	}
+
+	// Validate against the configured CA
+	opts := x509.VerifyOptions{
+		Roots:         m.caPool,
+		Intermediates: intermediates,
+		KeyUsages: []x509.ExtKeyUsage{
+			x509.ExtKeyUsageClientAuth,
+		},
+	}
+	if _, err := cert.Verify(opts); err != nil {
+		if counter, err := meter.Int64Counter("auth_mtls_failures_total",
+			metric.WithDescription("Total mTLS authentication failures")); err == nil {
+			counter.Add(ctx, 1, metric.WithAttributes(
+				attribute.String("method", "mtls"),
+				attribute.String("reason", "ca_validation_failed"),
+			))
 		}
+		return nil, fmt.Errorf("certificate validation failed: %w", err)
 	}
 
 	// Extract identity from certificate
@@ -189,9 +191,9 @@ func (m *MTLSAuthenticator) TryAuthenticate(ctx context.Context, rc *natsjwt.Aut
 		return config.UserProfile{}, fmt.Errorf("empty certificate chain")
 	}
 
-	certPEM := rc.TLS.VerifiedChains[0][0]
+	certChainPEM := rc.TLS.VerifiedChains[0]
 
-	profile, err := m.Authenticate(ctx, certPEM)
+	profile, err := m.Authenticate(ctx, certChainPEM[0], certChainPEM[1:]...)
 	if err != nil {
 		return config.UserProfile{}, fmt.Errorf("mTLS authentication failed: %w", err)
 	}
