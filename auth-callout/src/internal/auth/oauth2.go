@@ -120,7 +120,7 @@ func validateJWKSRedirect(req *http.Request, via []*http.Request, allowInsecure 
 	if len(via) >= 10 {
 		return fmt.Errorf("stopped after 10 JWKS redirects")
 	}
-	if len(via) > 0 && via[0].URL.Scheme == "https" && req.URL.Scheme != "https" {
+	if len(via) > 0 && via[len(via)-1].URL.Scheme == "https" && req.URL.Scheme != "https" {
 		return fmt.Errorf("JWKS redirects must not downgrade HTTPS to HTTP")
 	}
 
