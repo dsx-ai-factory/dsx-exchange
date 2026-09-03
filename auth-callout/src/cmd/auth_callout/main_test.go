@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/nats-io/nkeys"
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
 
 	"github.com/NVIDIA/dsx-exchange/auth-callout/src/internal/appconfig"
@@ -34,7 +35,7 @@ func TestRunServerDoesNotLogConfiguredNATSSeeds(t *testing.T) {
 
 	logs := captureStderr(t, func() {
 		globalConfig = appconfig.New(defaultConfigYAML)
-		err := runServer(nil, nil)
+		err := runServer(&cobra.Command{}, nil)
 		require.ErrorContains(t, err, "error connecting to NATS")
 	})
 

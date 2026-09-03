@@ -4,20 +4,65 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/nats-io/jwt/v2"
 	natsserver "github.com/nats-io/nats-server/v2/server"
 	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nkeys"
+	"github.com/stretchr/testify/require"
 	"github.com/synadia-io/callout.go"
 	"github.com/uptrace/opentelemetry-go-extra/otelzap"
 	"go.uber.org/zap"
 )
+
+func TestRunStopsWhenContextCanceled(t *testing.T) {
+	natsServer := runNATSServer(t)
+	permissionsFile := filepath.Join(t.TempDir(), "permissions.json")
+	require.NoError(t, os.WriteFile(permissionsFile, []byte(`{}`), 0o600))
+
+	issuerKeyPair, err := nkeys.CreateAccount()
+	require.NoError(t, err)
+	issuerSeed, err := issuerKeyPair.Seed()
+	require.NoError(t, err)
+
+	svc := New(ServiceConfig{
+		HostConfig: HostConfig{Port: 0},
+		NATS: NATSConfig{
+			URL:        natsServer.ClientURL(),
+			IssuerSeed: string(issuerSeed),
+		},
+		Permissions: PermissionsFileConfig{File: permissionsFile},
+	}, otelzap.New(zap.NewNop()))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	done := make(chan error, 1)
+	go func() {
+		done <- svc.Run(ctx)
+	}()
+
+	select {
+	case err := <-done:
+		require.NoError(t, err)
+		require.True(
+			t,
+			svc.natsConn.IsDraining() || svc.natsConn.IsClosed(),
+			"NATS connection was not drained",
+		)
+	case <-time.After(2 * time.Second):
+		t.Fatal("service did not stop after context cancellation")
+	}
+}
 
 func TestAuthorizationServiceStartsBeforeInitialNATSConnect(t *testing.T) {
 	natsServer := runNATSServer(t)
