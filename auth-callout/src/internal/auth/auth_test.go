@@ -84,6 +84,57 @@ func TestValidateOAuth2SigningAlgorithms(t *testing.T) {
 	}
 }
 
+func TestNewOAuth2AuthenticatorRejectsInsecureJWKSURL(t *testing.T) {
+	_, err := NewOAuth2Authenticator(
+		"http://auth.example.com/jwks",
+		"https://auth.example.com/",
+		"test-audience",
+		[]string{gojwt.SigningMethodRS256.Alg()},
+		false,
+		nil,
+		testLogger(),
+		testServiceName,
+	)
+
+	require.EqualError(t, err, "JWKS URL must use HTTPS")
+}
+
+func TestNewOAuth2AuthenticatorRejectsHTTPSDowngrade(t *testing.T) {
+	targetRequested := make(chan struct{}, 1)
+	targetServer := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		targetRequested <- struct{}{}
+	}))
+	defer targetServer.Close()
+
+	redirectServer := httptest.NewTLSServer(http.RedirectHandler(targetServer.URL, http.StatusFound))
+	defer redirectServer.Close()
+
+	defaultTransport := http.DefaultTransport
+	http.DefaultTransport = redirectServer.Client().Transport
+	defer func() {
+		http.DefaultTransport = defaultTransport
+	}()
+
+	oauth2Auth, err := NewOAuth2Authenticator(
+		redirectServer.URL,
+		"https://auth.example.com/",
+		"test-audience",
+		[]string{gojwt.SigningMethodRS256.Alg()},
+		false,
+		nil,
+		testLogger(),
+		testServiceName,
+	)
+	require.NoError(t, err)
+	defer oauth2Auth.Close()
+
+	select {
+	case <-targetRequested:
+		t.Fatal("followed HTTPS-to-HTTP redirect")
+	default:
+	}
+}
+
 // TestOAuth2Authentication tests OAuth2/JWKS authentication with mock server
 func TestOAuth2Authentication(t *testing.T) {
 	// Generate RSA key pair for JWT signing
@@ -136,6 +187,7 @@ func TestOAuth2Authentication(t *testing.T) {
 		"https://auth.example.com/",
 		"test-audience",
 		[]string{gojwt.SigningMethodRS256.Alg()},
+		true,
 		pm,
 		testLogger(),
 		testServiceName,
@@ -336,6 +388,7 @@ func TestOAuth2RejectsUnexpectedSigningMethod(t *testing.T) {
 		"https://auth.example.com/",
 		"test-audience",
 		[]string{gojwt.SigningMethodRS256.Alg()},
+		true,
 		pm,
 		testLogger(),
 		testServiceName,
@@ -397,6 +450,7 @@ func TestOAuth2AllowsConfiguredES256SigningMethod(t *testing.T) {
 		"https://auth.example.com/",
 		"test-audience",
 		[]string{gojwt.SigningMethodRS256.Alg(), gojwt.SigningMethodES256.Alg()},
+		true,
 		pm,
 		testLogger(),
 		testServiceName,
@@ -494,6 +548,7 @@ func TestOAuth2RequiredScope(t *testing.T) {
 		"https://auth.example.com/",
 		"test-audience",
 		[]string{gojwt.SigningMethodRS256.Alg()},
+		true,
 		pm,
 		testLogger(),
 		testServiceName,

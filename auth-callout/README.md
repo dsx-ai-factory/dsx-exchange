@@ -33,6 +33,7 @@ jwks:
   url: "https://keycloak/realms/master/protocol/openid-connect/certs"
   issuer: "https://keycloak/realms/master"
   audience: "dsx-exchange"
+  allow-insecure: false
   signing-algorithms:
     - RS256
     - ES256
