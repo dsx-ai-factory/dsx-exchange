@@ -6,6 +6,8 @@ package auth
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"net/url"
 	"slices"
 	"strings"
 
@@ -47,7 +49,7 @@ var supportedOAuth2SigningAlgorithms = map[string]struct{}{
 }
 
 // NewOAuth2Authenticator creates a new OAuth2 authenticator
-func NewOAuth2Authenticator(jwksURL string, issuer string, audience string, signingAlgorithms []string, pm *config.PermissionsManager, logger *otelzap.Logger, serviceName string) (*OAuth2Authenticator, error) {
+func NewOAuth2Authenticator(jwksURL string, issuer string, audience string, signingAlgorithms []string, allowInsecureJWKS bool, pm *config.PermissionsManager, logger *otelzap.Logger, serviceName string) (*OAuth2Authenticator, error) {
 	if issuer == "" {
 		return nil, fmt.Errorf("OAuth2 issuer is required")
 	}
@@ -57,10 +59,19 @@ func NewOAuth2Authenticator(jwksURL string, issuer string, audience string, sign
 	if err := validateOAuth2SigningAlgorithms(signingAlgorithms); err != nil {
 		return nil, err
 	}
+	if err := validateJWKSURL(jwksURL, allowInsecureJWKS); err != nil {
+		return nil, err
+	}
+
+	jwksClient := &http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return validateJWKSRedirect(req, via, allowInsecureJWKS)
+		},
+	}
 
 	// Create JWKS client with automatic refresh - context controls lifecycle
 	ctx, cancel := context.WithCancel(context.Background())
-	k, err := keyfunc.NewDefaultCtx(ctx, []string{jwksURL})
+	k, err := keyfunc.NewDefaultOverrideCtx(ctx, []string{jwksURL}, keyfunc.Override{Client: jwksClient})
 	if err != nil {
 		cancel()
 		return nil, fmt.Errorf("failed to create JWKS client: %w", err)
@@ -81,6 +92,39 @@ func NewOAuth2Authenticator(jwksURL string, issuer string, audience string, sign
 		serviceName:       serviceName,
 		cancel:            cancel,
 	}, nil
+}
+
+func validateJWKSURL(rawURL string, allowInsecure bool) error {
+	parsedURL, err := url.ParseRequestURI(rawURL)
+	if err != nil {
+		return fmt.Errorf("invalid JWKS URL: %w", err)
+	}
+	if parsedURL.Host == "" {
+		return fmt.Errorf("invalid JWKS URL: host is required")
+	}
+
+	switch parsedURL.Scheme {
+	case "https":
+		return nil
+	case "http":
+		if allowInsecure {
+			return nil
+		}
+		return fmt.Errorf("JWKS URL must use HTTPS")
+	default:
+		return fmt.Errorf("JWKS URL must use HTTP or HTTPS")
+	}
+}
+
+func validateJWKSRedirect(req *http.Request, via []*http.Request, allowInsecure bool) error {
+	if len(via) >= 10 {
+		return fmt.Errorf("stopped after 10 JWKS redirects")
+	}
+	if len(via) > 0 && via[0].URL.Scheme == "https" && req.URL.Scheme != "https" {
+		return fmt.Errorf("JWKS redirects must not downgrade HTTPS to HTTP")
+	}
+
+	return validateJWKSURL(req.URL.String(), allowInsecure)
 }
 
 func validateOAuth2SigningAlgorithms(configured []string) error {
