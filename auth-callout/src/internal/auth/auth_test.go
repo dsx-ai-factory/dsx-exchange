@@ -109,6 +109,9 @@ func TestNewOAuth2AuthenticatorRejectsHTTPSDowngrade(t *testing.T) {
 	redirectServer := httptest.NewTLSServer(http.RedirectHandler(targetServer.URL, http.StatusFound))
 	defer redirectServer.Close()
 
+	initialServer := httptest.NewServer(http.RedirectHandler(redirectServer.URL, http.StatusFound))
+	defer initialServer.Close()
+
 	defaultTransport := http.DefaultTransport
 	http.DefaultTransport = redirectServer.Client().Transport
 	defer func() {
@@ -116,11 +119,11 @@ func TestNewOAuth2AuthenticatorRejectsHTTPSDowngrade(t *testing.T) {
 	}()
 
 	oauth2Auth, err := NewOAuth2Authenticator(
-		redirectServer.URL,
+		initialServer.URL,
 		"https://auth.example.com/",
 		"test-audience",
 		[]string{gojwt.SigningMethodRS256.Alg()},
-		false,
+		true,
 		nil,
 		testLogger(),
 		testServiceName,
