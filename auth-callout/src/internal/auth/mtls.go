@@ -48,8 +48,8 @@ func (m *MTLSAuthenticator) CanAuthenticate(rc *natsjwt.AuthorizationRequestClai
 	return rc.TLS != nil && len(rc.TLS.VerifiedChains) > 0
 }
 
-// Authenticate validates a client certificate and returns user profile
-func (m *MTLSAuthenticator) Authenticate(ctx context.Context, certPEM string) (*config.UserProfile, error) {
+// Authenticate validates a client certificate chain and returns user profile
+func (m *MTLSAuthenticator) Authenticate(ctx context.Context, certPEM string, intermediatePEMs ...string) (*config.UserProfile, error) {
 	meter := metrics.GetMeter(m.serviceName)
 
 	if counter, err := meter.Int64Counter("auth_mtls_attempts_total",
@@ -70,9 +70,17 @@ func (m *MTLSAuthenticator) Authenticate(ctx context.Context, certPEM string) (*
 		return nil, fmt.Errorf("failed to parse certificate: %w", err)
 	}
 
+	intermediates := x509.NewCertPool()
+	for _, intermediatePEM := range intermediatePEMs {
+		if !intermediates.AppendCertsFromPEM([]byte(intermediatePEM)) {
+			return nil, fmt.Errorf("failed to parse intermediate certificate")
+		}
+	}
+
 	// Validate against the configured CA
 	opts := x509.VerifyOptions{
-		Roots: m.caPool,
+		Roots:         m.caPool,
+		Intermediates: intermediates,
 		KeyUsages: []x509.ExtKeyUsage{
 			x509.ExtKeyUsageClientAuth,
 		},
@@ -183,9 +191,9 @@ func (m *MTLSAuthenticator) TryAuthenticate(ctx context.Context, rc *natsjwt.Aut
 		return config.UserProfile{}, fmt.Errorf("empty certificate chain")
 	}
 
-	certPEM := rc.TLS.VerifiedChains[0][0]
+	certChainPEM := rc.TLS.VerifiedChains[0]
 
-	profile, err := m.Authenticate(ctx, certPEM)
+	profile, err := m.Authenticate(ctx, certChainPEM[0], certChainPEM[1:]...)
 	if err != nil {
 		return config.UserProfile{}, fmt.Errorf("mTLS authentication failed: %w", err)
 	}
