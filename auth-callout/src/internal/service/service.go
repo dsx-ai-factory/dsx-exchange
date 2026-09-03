@@ -208,9 +208,8 @@ func newHTTPServer(addr string, handler http.Handler, logger *zap.Logger) *http.
 	}
 }
 
-// Run starts the HTTP server and handles graceful shutdown when ctx is canceled.
-// It sets up routes including health checks and authentication middleware.
-// The service waits for context cancellation and performs a graceful shutdown with a 5-second timeout.
+// Run starts the service and gracefully shuts it down when ctx is canceled.
+// HTTP shutdown is limited to five seconds.
 func (s *Service) Run(ctx context.Context) error {
 	// =================================================
 	// Put unauthenticated health routes here.
