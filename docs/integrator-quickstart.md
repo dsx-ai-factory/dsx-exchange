@@ -80,6 +80,33 @@ mqttx pub \
 For mTLS, configure the SDK's TLS options with the CA certificate, client
 certificate, and client key supplied by the operator.
 
+## Use QoS 0 and Reconcile
+
+DSX integration contracts use QoS 0. Model all operational data as replaceable
+current state or repeatable intent. QoS 1, QoS 2, and retained messages do not
+provide end-to-end reliability and must not be required for correctness.
+
+If a caller requires acknowledgement of one exact request, use a direct API
+instead of the event bus. Refer to [When not to use a Bus](stateless-async-bus.md#when-not-to-use-a-bus).
+
+Use the following eventual-consistency pattern:
+
+1. Publish complete current state, never deltas.
+1. Republish state periodically, as well as when it changes.
+1. Include a source timestamp so consumers can reject older observations. If the
+   source cannot guarantee timestamp ordering, define a source-scoped,
+   monotonically increasing revision.
+1. Make consumer updates idempotent, and expire state that is no longer refreshed.
+
+QoS 1 and QoS 2 remain available for compatibility with MQTT clients that
+require those protocol handshakes. They add NATS JetStream state and reduce
+throughput without removing the need for reconciliation.
+
+Retained messages can seed a new subscriber with a recent full snapshot and
+reduce startup latency. Treat this as an optional performance optimization:
+subscribers must still converge when no retained message is available. For
+implementation details, refer to [MQTT Support](architecture.md#mqtt-support).
+
 ## Choose an MQTT SDK
 
 Use the MQTT library that fits the application you are already building. These

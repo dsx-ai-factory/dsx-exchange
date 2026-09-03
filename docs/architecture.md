@@ -147,6 +147,21 @@ Supported QoS levels:
 - **QoS 1** — at least once (acknowledged delivery, backed by JetStream)
 - **QoS 2** — exactly once (backed by JetStream)
 
+DSX integration contracts use QoS 0 and eventual reconciliation. Messages must
+represent replaceable current state or repeatable intent. Higher QoS levels are
+available for MQTT client compatibility, not as a correctness mechanism. Refer
+to [Use QoS 0 and Reconcile](integrator-quickstart.md#use-qos-0-and-reconcile)
+
+NATS uses JetStream to persist incoming QoS 1 and QoS 2 messages and track
+subscriber acknowledgements. DSX Exchange defaults its internal MQTT streams
+and consumers to memory storage. This avoids disk I/O, but not the state,
+replication, and acknowledgement work. The
+[NATS MQTT implementation notes](https://github.com/nats-io/nats-server/blob/main/server/README-MQTT.md#2-use-of-jetstream)
+explain the underlying stream and consumer behavior.
+
+Retained messages are an optional startup optimization, not part of an
+integration's correctness or schema contract.
+
 ## Networking
 
 ### Exposed Ports
