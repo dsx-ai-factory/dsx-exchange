@@ -43,7 +43,7 @@ func TestRunServerDoesNotLogConfiguredNATSSeeds(t *testing.T) {
 	}
 }
 
-func TestDefaultConfigIncludesJWKSSigningAlgorithms(t *testing.T) {
+func TestDefaultConfigIncludesJWKSSettings(t *testing.T) {
 	// Load overlays env and config-file sources after defaultConfigYAML; clear
 	// those inputs so this test only proves the embedded app defaults.
 	t.Setenv("AUTH_CALLOUT_CONFIG", "")
@@ -51,6 +51,8 @@ func TestDefaultConfigIncludesJWKSSigningAlgorithms(t *testing.T) {
 	t.Setenv("AUTH_CALLOUT_HOT_CONFIG", "")
 	t.Setenv("AUTH_CALLOUT_JWKS_SIGNING_ALGORITHMS", "")
 	t.Setenv("JWKS_SIGNING_ALGORITHMS", "")
+	t.Setenv("AUTH_CALLOUT_JWKS_ALLOW_INSECURE", "")
+	t.Setenv("JWKS_ALLOW_INSECURE", "")
 
 	manager := appconfig.New(defaultConfigYAML)
 	require.NoError(t, manager.Load())
@@ -58,11 +60,13 @@ func TestDefaultConfigIncludesJWKSSigningAlgorithms(t *testing.T) {
 	type jwksConfig struct {
 		JWKS struct {
 			SigningAlgorithms []string `koanf:"signing-algorithms"`
+			AllowInsecure     bool     `koanf:"allow-insecure"`
 		} `koanf:"jwks"`
 	}
 	var config jwksConfig
 	require.NoError(t, manager.Unmarshal(&config))
 	require.Equal(t, []string{"RS256"}, config.JWKS.SigningAlgorithms)
+	require.False(t, config.JWKS.AllowInsecure)
 }
 
 func captureStderr(t *testing.T, fn func()) string {
