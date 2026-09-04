@@ -1,8 +1,8 @@
-# Default: DSX developers team reviews all changes
-* @dsx-ai-factory/dsx-sw-developers
+# Default: dsx-exchange project team reviews all changes
+* @dsx-ai-factory/dsx-exchange
 
-# CI/CD workflow changes require additional review
-.github/ @dsx-ai-factory/dsx-sw-admins
+# CI/CD workflow changes
+.github/ @dsx-ai-factory/dsx-exchange
 
 # Security-sensitive files
-SECURITY.md @dsx-ai-factory/dsx-sw-admins
+SECURITY.md @dsx-ai-factory/dsx-exchange
