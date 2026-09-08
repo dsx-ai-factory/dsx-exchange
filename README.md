@@ -89,6 +89,32 @@ See [local/mqttbs/README.md](local/mqttbs/README.md) for smoke-sized options.
 
 DSX Exchange follows [Semantic Versioning](https://semver.org/) (`vX.Y.Z`), automated via semantic-release. A new version is published automatically when a semantic-release compliant commit is merged to `main`.
 
+Release candidates use a protected `release/<target-version>` branch that is
+listed explicitly in `.releaserc.json`. The first semantic-release compliant
+commit merged to that branch creates `vX.Y.Z-rc.1`; later qualifying merges
+increment the RC number. The workflow checks that the calculated version
+matches the target version in the branch name before creating the tag. Each RC
+uses one version for all artifacts published to the DSX `components-dev` NGC
+team. Replace the configured release branch for each release cycle rather than
+using a glob with the shared `rc` prerelease identifier.
+
+Published artifacts:
+
+- Container images: `auth-callout`, `dsx-agentgateway-bridge`
+- Helm charts: `auth-callout`, `nats-event-bus`, `dsx-agent-gateway`
+
+The `components-dev` GitHub environment must provide the
+`NGC_DSX_COMPONENTS_PUSH_KEY` secret and allow deployments only from
+`release/*`. A repository ruleset keeps those branches PR-only and requires a
+Code Owner approval. A failed artifact job can be rerun: the workflow reuses
+the single RC tag on the same commit, verifies existing artifacts against that
+commit, and publishes only missing artifacts. Final tags from `main` continue
+through the existing GitLab mirror publishing path.
+
+See the
+[shared RC publishing contract](https://github.com/dsx-ai-factory/dsx-github-actions/blob/main/docs/release-candidate-publishing.md)
+when onboarding another GitHub-hosted DSX component.
+
 | Commit prefix | Version bump | When to use |
 |---------------|-------------|-------------|
 | `fix:` | Patch (Z) | Bug fixes, CVE remediation |
