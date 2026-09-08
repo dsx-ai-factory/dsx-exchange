@@ -61,7 +61,9 @@ jobs:
             echo "Release branch must use release/X.Y.Z with canonical SemVer." >&2
             exit 1
           fi
-          if [[ "$PREVIEW_VERSION" != "$target_version"-rc.* ]]; then
+          rc_prefix="${target_version}-rc."
+          rc_number="${PREVIEW_VERSION#"$rc_prefix"}"
+          if [[ "$PREVIEW_VERSION" != "$rc_prefix"* || ! "$rc_number" =~ ^[1-9][0-9]*$ ]]; then
             echo "Branch $GITHUB_REF_NAME expects $target_version-rc.N, but semantic-release calculated $PREVIEW_VERSION." >&2
             exit 1
           fi
