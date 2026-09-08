@@ -10,14 +10,25 @@ on:
   push:
     branches:
       - main
+      - "release/*"
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   release:
     name: Semantic Release
     runs-on: linux-amd64-cpu4
+    permissions:
+      contents: write
+    outputs:
+      publish-rc: ${{ steps.rc.outputs.should-publish }}
+      version: ${{ steps.rc.outputs.version }}
+      tag: ${{ steps.rc.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -27,7 +38,242 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - uses: dsx-ai-factory/dsx-github-actions/.github/actions/semantic-release@0969f64c3efa9e757135cbf457ea13cde4c3fa38 # v1.17.0
+
+      - name: Preview release candidate
+        id: preview
+        if: startsWith(github.ref, 'refs/heads/release/')
+        uses: dsx-ai-factory/dsx-github-actions/.github/actions/semantic-release@0969f64c3efa9e757135cbf457ea13cde4c3fa38 # v1.17.0
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          extra-plugins: conventional-changelog-conventionalcommits
+          semantic-version: 25.0.9
+          extra-plugins: conventional-changelog-conventionalcommits@9.3.1
+          dry-run: "true"
+
+      - name: Validate release branch target
+        if: startsWith(github.ref, 'refs/heads/release/') && steps.preview.outputs.new-release-published == 'true'
+        env:
+          PREVIEW_VERSION: ${{ steps.preview.outputs.new-release-version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          target_version="${GITHUB_REF_NAME#release/}"
+          if [[ ! "$target_version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "Release branch must use release/X.Y.Z with canonical SemVer." >&2
+            exit 1
+          fi
+          rc_prefix="${target_version}-rc."
+          rc_number="${PREVIEW_VERSION#"$rc_prefix"}"
+          if [[ "$PREVIEW_VERSION" != "$rc_prefix"* || ! "$rc_number" =~ ^[1-9][0-9]*$ ]]; then
+            echo "Branch $GITHUB_REF_NAME expects $target_version-rc.N, but semantic-release calculated $PREVIEW_VERSION." >&2
+            exit 1
+          fi
+
+      - name: Create semantic release
+        id: semantic
+        uses: dsx-ai-factory/dsx-github-actions/.github/actions/semantic-release@0969f64c3efa9e757135cbf457ea13cde4c3fa38 # v1.17.0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          semantic-version: 25.0.9
+          extra-plugins: conventional-changelog-conventionalcommits@9.3.1
+
+      - name: Resolve RC artifact publishing
+        id: rc
+        if: startsWith(github.ref, 'refs/heads/release/')
+        uses: dsx-ai-factory/dsx-github-actions/.github/actions/resolve-release-candidate@d15d46d22d09f7111177a6f5e9f7ae9933e067b2
+        with:
+          new-release-published: ${{ steps.semantic.outputs.new-release-published }}
+          new-release-version: ${{ steps.semantic.outputs.new-release-version }}
+          new-release-git-tag: ${{ steps.semantic.outputs.new-release-git-tag }}
+
+  publish-rc-images:
+    name: Publish RC image (${{ matrix.name }})
+    needs: release
+    if: startsWith(github.ref, 'refs/heads/release/') && needs.release.outputs.publish-rc == 'true'
+    runs-on: linux-amd64-cpu4
+    environment: components-dev
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: auth-callout
+            context: auth-callout
+            dockerfile: auth-callout/build/package/Dockerfile
+          - name: dsx-agentgateway-bridge
+            context: dsx-agentgateway-bridge
+            dockerfile: dsx-agentgateway-bridge/Dockerfile
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release.outputs.tag }}
+          persist-credentials: false
+
+      - name: Resolve immutable image metadata
+        id: metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "created=$(git show -s --format=%cI HEAD)" >> "$GITHUB_OUTPUT"
+          echo "revision=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to NGC
+        uses: docker/login-action@v3
+        with:
+          registry: nvcr.io
+          username: $oauthtoken
+          password: ${{ secrets.NGC_DSX_COMPONENTS_PUSH_KEY }}
+
+      - name: Check for an existing immutable image
+        id: existing
+        env:
+          EXPECTED_REVISION: ${{ steps.metadata.outputs.revision }}
+          IMAGE_REF: nvcr.io/0837451325059433/components-dev/${{ matrix.name }}:${{ needs.release.outputs.version }}
+        shell: bash
+        run: |
+          set +e
+          scripts/verify-rc-image.sh "$IMAGE_REF" "$EXPECTED_REVISION"
+          status=$?
+          set -e
+          case "$status" in
+            0) echo "exists=true" >> "$GITHUB_OUTPUT" ;;
+            3) echo "exists=false" >> "$GITHUB_OUTPUT" ;;
+            *) exit "$status" ;;
+          esac
+
+      - name: Build and publish image
+        if: steps.existing.outputs.exists != 'true'
+        uses: dsx-ai-factory/dsx-github-actions/.github/actions/docker-build@0969f64c3efa9e757135cbf457ea13cde4c3fa38 # v1.17.0
+        with:
+          image: nvcr.io/0837451325059433/components-dev/${{ matrix.name }}
+          tags: ${{ needs.release.outputs.version }}
+          context: ${{ matrix.context }}
+          dockerfile: ${{ matrix.dockerfile }}
+          platforms: linux/amd64,linux/arm64
+          push: "true"
+          registry: nvcr.io
+          username: $oauthtoken
+          password: ${{ secrets.NGC_DSX_COMPONENTS_PUSH_KEY }}
+          cache-scope: rc-${{ matrix.name }}
+          labels: |
+            org.opencontainers.image.created=${{ steps.metadata.outputs.created }}
+            org.opencontainers.image.revision=${{ steps.metadata.outputs.revision }}
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.version=${{ needs.release.outputs.version }}
+
+      - name: Verify published image
+        env:
+          EXPECTED_REVISION: ${{ steps.metadata.outputs.revision }}
+          IMAGE_REF: nvcr.io/0837451325059433/components-dev/${{ matrix.name }}:${{ needs.release.outputs.version }}
+        run: scripts/verify-rc-image.sh "$IMAGE_REF" "$EXPECTED_REVISION"
+
+  publish-rc-charts:
+    name: Publish RC chart (${{ matrix.name }})
+    needs: release
+    if: startsWith(github.ref, 'refs/heads/release/') && needs.release.outputs.publish-rc == 'true'
+    runs-on: linux-amd64-cpu4
+    environment: components-dev
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: auth-callout
+            chart_path: auth-callout/deploy
+            has_dependencies: false
+            align_local_auth_callout: false
+          - name: nats-event-bus
+            chart_path: deploy/nats-event-bus
+            has_dependencies: true
+            align_local_auth_callout: true
+          - name: dsx-agent-gateway
+            chart_path: deploy/dsx-agent-gateway
+            has_dependencies: true
+            align_local_auth_callout: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release.outputs.tag }}
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-mise
+        with:
+          cache-key: release-helm-yq
+          install-args: helm yq
+
+      - name: Stamp immutable chart metadata
+        env:
+          CHART_PATH: ${{ matrix.chart_path }}
+          SOURCE_REVISION: ${{ github.sha }}
+        run: |
+          yq -i \
+            '.annotations = (.annotations // {}) | .annotations."dsx.nvidia.com/source-revision" = strenv(SOURCE_REVISION)' \
+            "$CHART_PATH/Chart.yaml"
+
+      - name: Align local chart dependency versions
+        if: matrix.align_local_auth_callout
+        env:
+          RELEASE_VERSION: ${{ needs.release.outputs.version }}
+        run: |
+          set -euo pipefail
+          yq -i '(.version, .appVersion) = strenv(RELEASE_VERSION)' \
+            auth-callout/deploy/Chart.yaml
+          yq -i \
+            '(.dependencies[] | select(.name == "auth-callout").version) = strenv(RELEASE_VERSION)' \
+            deploy/nats-event-bus/Chart.yaml
+          yq -e \
+            '.dependencies[] | select(.name == "auth-callout" and .version == strenv(RELEASE_VERSION))' \
+            deploy/nats-event-bus/Chart.yaml >/dev/null
+
+      - name: Resolve chart dependencies
+        if: matrix.has_dependencies
+        env:
+          CHART_PATH: ${{ matrix.chart_path }}
+        run: helm dependency update "$CHART_PATH"
+
+      - name: Publish chart
+        id: publish
+        uses: dsx-ai-factory/dsx-github-actions/.github/actions/helm-package-push@0969f64c3efa9e757135cbf457ea13cde4c3fa38 # v1.17.0
+        with:
+          chart-path: ${{ matrix.chart_path }}
+          chart-version: ${{ needs.release.outputs.version }}
+          app-version: ${{ needs.release.outputs.version }}
+          lint: "true"
+          ngc-key: ${{ secrets.NGC_DSX_COMPONENTS_PUSH_KEY }}
+          ngc-path: 0837451325059433/components-dev
+          ngc-duplicate: skip
+
+      - name: Verify published chart
+        env:
+          CHART_NAME: ${{ matrix.name }}
+          EXPECTED_REVISION: ${{ github.sha }}
+          RELEASE_VERSION: ${{ needs.release.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          verify_dir="$(mktemp -d "$RUNNER_TEMP/dsx-rc-chart.XXXXXX")"
+          trap 'rm -rf "$verify_dir"' EXIT
+          for attempt in 1 2 3 4 5 6; do
+            if helm repo update helm-repo-ngc && \
+              helm pull "helm-repo-ngc/$CHART_NAME" \
+              --version "$RELEASE_VERSION" \
+              --destination "$verify_dir"; then
+              break
+            fi
+            if [[ "$attempt" == 6 ]]; then
+              echo "NGC did not expose $CHART_NAME $RELEASE_VERSION after 6 attempts." >&2
+              exit 1
+            fi
+            sleep 10
+          done
+          chart_archive="$verify_dir/$CHART_NAME-$RELEASE_VERSION.tgz"
+          chart_metadata="$verify_dir/Chart.yaml"
+          helm show chart "$chart_archive" > "$chart_metadata"
+          yq -e '
+            .version == strenv(RELEASE_VERSION) and
+            .appVersion == strenv(RELEASE_VERSION) and
+            .annotations."dsx.nvidia.com/source-revision" == strenv(EXPECTED_REVISION)
+          ' "$chart_metadata" >/dev/null
