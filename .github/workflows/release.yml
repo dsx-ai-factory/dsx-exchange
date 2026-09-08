@@ -256,9 +256,19 @@ jobs:
           set -euo pipefail
           verify_dir="$(mktemp -d "$RUNNER_TEMP/dsx-rc-chart.XXXXXX")"
           trap 'rm -rf "$verify_dir"' EXIT
-          helm pull "helm-repo-ngc/$CHART_NAME" \
-            --version "$RELEASE_VERSION" \
-            --destination "$verify_dir"
+          for attempt in 1 2 3 4 5 6; do
+            helm repo update helm-repo-ngc
+            if helm pull "helm-repo-ngc/$CHART_NAME" \
+              --version "$RELEASE_VERSION" \
+              --destination "$verify_dir"; then
+              break
+            fi
+            if [[ "$attempt" == 6 ]]; then
+              echo "NGC did not expose $CHART_NAME $RELEASE_VERSION after 6 attempts." >&2
+              exit 1
+            fi
+            sleep 10
+          done
           chart_archive="$verify_dir/$CHART_NAME-$RELEASE_VERSION.tgz"
           chart_metadata="$verify_dir/Chart.yaml"
           helm show chart "$chart_archive" > "$chart_metadata"
