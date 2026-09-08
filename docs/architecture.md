@@ -23,7 +23,7 @@ The DSX Event Bus is a [NATS](https://nats.io/) messaging platform that provides
 The event bus supports the following capabilities:
 
 - **High availability.** 3-node cluster with topology-aware anti-affinity and automatic failover.
-- **Persistent messaging.** JetStream-backed QoS 0/1 and retained message support with in-memory replication.
+- **Persistent messaging.** JetStream-backed QoS 1/2 and retained message support with in-memory replication.
 - **Multi-cluster federation.** Leaf node connections between deployment layers with controlled topic filtering at each boundary.
 - **Declarative deployment.** Helm chart-based, ArgoCD-compatible, with no manual intervention required.
 
@@ -147,6 +147,21 @@ Supported QoS levels:
 - **QoS 1** — at least once (acknowledged delivery, backed by JetStream)
 - **QoS 2** — exactly once (backed by JetStream)
 
+DSX integration contracts use QoS 0 and eventual reconciliation. Messages must
+represent replaceable current state or repeatable intent. Higher QoS levels are
+available for MQTT client compatibility, not as a correctness mechanism. Refer
+to [Use QoS 0 and Reconcile](integrator-quickstart.md#use-qos-0-and-reconcile)
+
+NATS uses JetStream to persist incoming QoS 1 and QoS 2 messages and track
+subscriber acknowledgements. DSX Exchange defaults its internal MQTT streams
+and consumers to memory storage. This avoids disk I/O, but not the state,
+replication, and acknowledgement work. The
+[NATS MQTT implementation notes](https://github.com/nats-io/nats-server/blob/main/server/README-MQTT.md#2-use-of-jetstream)
+explain the underlying stream and consumer behavior.
+
+Retained messages are an optional startup optimization, not part of an
+integration's correctness or schema contract.
+
 ## Networking
 
 ### Exposed Ports
@@ -166,7 +181,9 @@ Supported QoS levels:
 
 ## Persistence
 
-JetStream provides message persistence. MQTT QoS 1 messages and retained messages are stored in JetStream streams managed declaratively by the NACK controller.
+JetStream provides message persistence. MQTT QoS 1 and QoS 2 messages and
+retained messages are stored in JetStream streams managed declaratively by the
+NACK controller.
 
 - The built-in CPC account uses local JetStream for its own topic space and domain mapping to the CSC for cross-layer persistence; extra accounts keep their own account configuration on each cluster and are bridged by leaf nodes.
 - Stream configuration (storage type, replicas, max bytes) is set via `mqttStreams` Helm values

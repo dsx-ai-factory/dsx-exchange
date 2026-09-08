@@ -44,13 +44,13 @@ MQTT is a lightweight publish/subscribe messaging protocol. There is no polling 
 
 Every point in the BMS specification has two distinct message types: a Value message and a Metadata message. This is one of the most important concepts to understand before you begin implementation.
 
-* **Value message:** Contains the live reading for a point. Published whenever the value changes, and republished every 100 seconds if it has not changed. The payload is always the same simple structure: a numeric value, a Unix timestamp in milliseconds, and a quality flag. Due to added system overhead, value messages should not be retained. QoS 0 should be used as the default unless critical, time-sensitive data points require a higher QoS.
+* **Value message:** Contains the live reading for a point. Published whenever the value changes, and republished every 100 seconds if it has not changed. The payload is always the same simple structure: a numeric value, a Unix timestamp in milliseconds, and a quality flag. Due to added system overhead, value messages should not be retained. Value messages must use QoS 0; periodic republication is the recovery mechanism when messages are lost.
 
 ```json
 { "value": 32.5, "timestamp": 1743620423000, "quality": 1 }
 ```
 
-* **Metadata message:** Describes what the point is — its engineering units, what object it belongs to, how it relates to other objects, and other context that makes the value interpretable. Published once at startup, then republished every 100 seconds. Metadata should be set as retained by the broker so new subscribers receive it immediately. Metadata is not expected to change very often unless there is a BMS design change.
+* **Metadata message:** Describes what the point is — its engineering units, what object it belongs to, how it relates to other objects, and other context that makes the value interpretable. Published once at startup, then republished every 100 seconds. Metadata messages must use QoS 0. They can be retained by the broker to reduce subscriber startup time. Consumers must not depend on retained delivery; periodic republication is the recovery mechanism. Metadata is not expected to change very often unless there is a BMS design change.
 
 <Note>
 Important: IT-side consumers MUST receive and process metadata before they can correctly interpret values. Metadata is what tells a Digital Twin that a value of 32.5 is a CDU secondary supply temperature in degrees Celsius, not a valve position in percent. Without metadata, the value is just a number.
