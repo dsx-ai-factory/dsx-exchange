@@ -257,8 +257,8 @@ jobs:
           verify_dir="$(mktemp -d "$RUNNER_TEMP/dsx-rc-chart.XXXXXX")"
           trap 'rm -rf "$verify_dir"' EXIT
           for attempt in 1 2 3 4 5 6; do
-            helm repo update helm-repo-ngc
-            if helm pull "helm-repo-ngc/$CHART_NAME" \
+            if helm repo update helm-repo-ngc && \
+              helm pull "helm-repo-ngc/$CHART_NAME" \
               --version "$RELEASE_VERSION" \
               --destination "$verify_dir"; then
               break
