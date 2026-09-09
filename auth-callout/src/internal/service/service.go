@@ -9,8 +9,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
 	gorillaHandlers "github.com/gorilla/handlers"
@@ -210,10 +208,9 @@ func newHTTPServer(addr string, handler http.Handler, logger *zap.Logger) *http.
 	}
 }
 
-// Run starts the HTTP server and handles graceful shutdown on SIGINT or SIGTERM signals.
-// It sets up routes including health checks and authentication middleware.
-// The service will wait for interrupt signals and perform a graceful shutdown with a 5-second timeout.
-func (s *Service) Run() error {
+// Run starts the service and gracefully shuts it down when ctx is canceled.
+// HTTP shutdown is limited to five seconds.
+func (s *Service) Run(ctx context.Context) error {
 	// =================================================
 	// Put unauthenticated health routes here.
 	// =================================================
@@ -249,7 +246,7 @@ func (s *Service) Run() error {
 
 	// Create authorization handler
 	authorizerFn := func(req *jwt.AuthorizationRequest) (string, error) {
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
 		defer cancel()
 		ctx = obslogging.AttachLoggerToContext(ctx, s.logger)
 		return s.handleAuthRequest(ctx, req)
@@ -287,10 +284,7 @@ func (s *Service) Run() error {
 		}
 	}()
 
-	// Handle interrupts
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-	<-sigChan
+	<-ctx.Done()
 
 	// Graceful shutdown
 	s.logger.Warn("service is shutting down...")
@@ -310,10 +304,10 @@ func (s *Service) Run() error {
 		s.logger.Error("error closing permissions manager", zap.Error(err))
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	if err := s.server.Shutdown(ctx); err != nil {
+	if err := s.server.Shutdown(shutdownCtx); err != nil {
 		errMsg := fmt.Sprintf("service shutdown failed: %s", err.Error())
 		s.logger.Error(errMsg, zap.Error(err))
 	} else {
