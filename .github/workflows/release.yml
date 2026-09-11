@@ -30,4 +30,4 @@ jobs:
       - uses: dsx-ai-factory/dsx-github-actions/.github/actions/semantic-release@0969f64c3efa9e757135cbf457ea13cde4c3fa38 # v1.17.0
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          extra-plugins: conventional-changelog-conventionalcommits
+          extra-plugins: conventional-changelog-conventionalcommits@9.3.1
