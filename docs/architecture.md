@@ -1,14 +1,20 @@
+---
+last-updated: August 5, 2026
+---
+
 # Architecture
 
 ## DSX Exchange
 
-DSX Exchange is an open source event bus for AI factory operations. It supports real-time operational signal exchange between power management systems, building management systems, cooling infrastructure, grid interfaces, and compute schedulers.
+DSX Exchange is an open source platform for AI factory operations. It includes the DSX Event Bus, AsyncAPI schemas, and DSX Agent Gateway. The DSX Event Bus supports real-time operational signal exchange between power management systems, building management systems, cooling infrastructure, grid interfaces, and compute schedulers.
 
-DSX Exchange consists of three components:
+DSX Exchange consists of the following components:
 
 | Component | What It Is |
 |-----------|------------|
 | DSX Event Bus | NATS with MQTT 3.1.1, HA clustering, and leaf-node federation |
+| DSX Agent Gateway | Authenticated Model Context Protocol routing to local and remote MCP servers |
+| DSX Agent Gateway Bridge | Stateless cross-shard MCP routing through the DSX Event Bus |
 | AsyncAPI Schema | Formal topic definitions and payload contracts per service team |
 | Auth-Callout Service | OAuth2/mTLS/NKey authentication with topic-level ACLs |
 
@@ -37,6 +43,10 @@ Concrete signal paths it enables today:
 - **BMS -> NICo**: coolant leak events so NICo can cordon nodes and migrate workloads in seconds, not minutes
 - **Grid -> DSX Flex -> Scheduler**: demand-response curtailment signals so the factory can shed load within seconds
 - **GPU telemetry -> thermal optimization agents**: real-time thermal data so predictive agents can pre-adjust cooling setpoints before temperature spikes
+
+## DSX Agent Gateway
+
+DSX Agent Gateway authenticates Model Context Protocol clients and routes their requests to authorized MCP servers. An optional stateless bridge uses the DSX Event Bus to discover shards and route MCP requests across cluster boundaries. The [DSX Agent Gateway overview](agent-gateway/index.mdx) introduces its workflows and deployment model.
 
 ## System Overview
 
@@ -106,7 +116,7 @@ Each cluster is a separate Kubernetes cluster with overlapping internal networks
 Replica counts are defaults for a reference deployment. Actual values are configurable and depend on the scale of the data center deployment.
 
 | Component | Default Replicas | Purpose |
-|-----------|-----------------|---------|
+|-----------|------------------|---------|
 | NATS (main) | 3 | MQTT/NATS clients, JetStream persistence |
 | NATS (mTLS) | 1 | mTLS-authenticated MQTT endpoint, optional |
 | Auth Callout | 1 | Authenticates connections for both NATS instances |
@@ -128,7 +138,7 @@ Detailed routing diagrams for every publish scenario (local, cross-space, federa
 Cross-layer configuration controls which topics are copied between CPC local and CSC unified topic spaces:
 
 | Direction | Config Key | Behavior |
-|-----------|-----------|----------|
+|-----------|------------|----------|
 | CPC -> CSC | `cpcExports` | Copied with `cpc.{id}.` prefix added |
 | CSC -> all CPCs | `cscExports` | Broadcast to all CPC topic spaces |
 | CSC -> specific CPC | `cscPrefixedExports` | `cpc.{id}.` prefix stripped on delivery |
