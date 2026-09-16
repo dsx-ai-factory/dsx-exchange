@@ -30,3 +30,4 @@ auth-callout:
       url: "http://172.18.200.1/jwks.json"
       issuer: "http://172.18.200.1"
       audience: "dsx-exchange"
+      allow-insecure: true

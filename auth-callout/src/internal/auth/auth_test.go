@@ -84,6 +84,133 @@ func TestValidateOAuth2SigningAlgorithms(t *testing.T) {
 	}
 }
 
+func TestNewOAuth2AuthenticatorRejectsInsecureJWKSURL(t *testing.T) {
+	_, err := NewOAuth2Authenticator(
+		"http://auth.example.com/jwks",
+		"https://auth.example.com/",
+		"test-audience",
+		[]string{gojwt.SigningMethodRS256.Alg()},
+		false,
+		nil,
+		testLogger(),
+		testServiceName,
+	)
+
+	require.EqualError(t, err, "JWKS URL must use HTTPS")
+}
+
+func TestNewOAuth2AuthenticatorRejectsHTTPSDowngrade(t *testing.T) {
+	initialRequested := make(chan struct{}, 1)
+	redirectRequested := make(chan struct{}, 1)
+	targetRequested := make(chan struct{}, 1)
+
+	targetServer := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		targetRequested <- struct{}{}
+	}))
+	defer targetServer.Close()
+
+	redirectServer := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, targetServer.URL, http.StatusFound)
+		redirectRequested <- struct{}{}
+	}))
+	defer redirectServer.Close()
+
+	initialServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, redirectServer.URL, http.StatusFound)
+		initialRequested <- struct{}{}
+	}))
+	defer initialServer.Close()
+
+	defaultClient := http.DefaultClient
+	http.DefaultClient = redirectServer.Client()
+	defer func() {
+		http.DefaultClient = defaultClient
+	}()
+
+	oauth2Auth, err := NewOAuth2Authenticator(
+		initialServer.URL,
+		"https://auth.example.com/",
+		"test-audience",
+		[]string{gojwt.SigningMethodRS256.Alg()},
+		true,
+		nil,
+		testLogger(),
+		testServiceName,
+	)
+	require.NoError(t, err)
+	defer oauth2Auth.Close()
+
+	requireServerRequested(t, initialRequested, "initial JWKS server")
+	requireServerRequested(t, redirectRequested, "HTTPS redirect server")
+
+	select {
+	case <-targetRequested:
+		t.Fatal("followed HTTPS-to-HTTP redirect")
+	default:
+	}
+}
+
+func TestValidateJWKSRedirect(t *testing.T) {
+	tests := []struct {
+		name          string
+		requestURL    string
+		previousURL   string
+		allowInsecure bool
+		expectedError string
+	}{
+		{
+			name:        "allows HTTPS redirect",
+			requestURL:  "https://auth.example.com/keys",
+			previousURL: "https://auth.example.com/jwks",
+		},
+		{
+			name:          "allows HTTP to HTTPS upgrade",
+			requestURL:    "https://auth.example.com/keys",
+			previousURL:   "http://auth.example.com/jwks",
+			allowInsecure: true,
+		},
+		{
+			name:          "rejects HTTPS to HTTP downgrade when HTTP is allowed",
+			requestURL:    "http://auth.example.com/keys",
+			previousURL:   "https://auth.example.com/jwks",
+			allowInsecure: true,
+			expectedError: "JWKS redirects must not downgrade HTTPS to HTTP",
+		},
+		{
+			name:          "rejects HTTP redirect by default",
+			requestURL:    "http://auth.example.com/keys",
+			previousURL:   "http://auth.example.com/jwks",
+			expectedError: "JWKS URL must use HTTPS",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			request, err := http.NewRequest(http.MethodGet, tt.requestURL, nil)
+			require.NoError(t, err)
+			previousRequest, err := http.NewRequest(http.MethodGet, tt.previousURL, nil)
+			require.NoError(t, err)
+
+			err = validateJWKSRedirect(request, []*http.Request{previousRequest}, tt.allowInsecure)
+			if tt.expectedError == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.EqualError(t, err, tt.expectedError)
+		})
+	}
+}
+
+func requireServerRequested(t *testing.T, requested <-chan struct{}, server string) {
+	t.Helper()
+
+	select {
+	case <-requested:
+	case <-time.After(time.Second):
+		t.Fatalf("%s was not requested", server)
+	}
+}
+
 // TestOAuth2Authentication tests OAuth2/JWKS authentication with mock server
 func TestOAuth2Authentication(t *testing.T) {
 	// Generate RSA key pair for JWT signing
@@ -136,6 +263,7 @@ func TestOAuth2Authentication(t *testing.T) {
 		"https://auth.example.com/",
 		"test-audience",
 		[]string{gojwt.SigningMethodRS256.Alg()},
+		true,
 		pm,
 		testLogger(),
 		testServiceName,
@@ -336,6 +464,7 @@ func TestOAuth2RejectsUnexpectedSigningMethod(t *testing.T) {
 		"https://auth.example.com/",
 		"test-audience",
 		[]string{gojwt.SigningMethodRS256.Alg()},
+		true,
 		pm,
 		testLogger(),
 		testServiceName,
@@ -397,6 +526,7 @@ func TestOAuth2AllowsConfiguredES256SigningMethod(t *testing.T) {
 		"https://auth.example.com/",
 		"test-audience",
 		[]string{gojwt.SigningMethodRS256.Alg(), gojwt.SigningMethodES256.Alg()},
+		true,
 		pm,
 		testLogger(),
 		testServiceName,
@@ -494,6 +624,7 @@ func TestOAuth2RequiredScope(t *testing.T) {
 		"https://auth.example.com/",
 		"test-audience",
 		[]string{gojwt.SigningMethodRS256.Alg()},
+		true,
 		pm,
 		testLogger(),
 		testServiceName,

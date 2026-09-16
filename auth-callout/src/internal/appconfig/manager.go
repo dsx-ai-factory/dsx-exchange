@@ -109,6 +109,7 @@ func applyAliases(k *koanf.Koanf) {
 	setString(k, "jwks.issuer", "JWKS_ISSUER", envPrefix+"JWKS_ISSUER")
 	setString(k, "jwks.audience", "JWKS_AUDIENCE", envPrefix+"JWKS_AUDIENCE")
 	setStringSlice(k, "jwks.signing-algorithms", "JWKS_SIGNING_ALGORITHMS", envPrefix+"JWKS_SIGNING_ALGORITHMS")
+	setString(k, "jwks.allow-insecure", "JWKS_ALLOW_INSECURE", envPrefix+"JWKS_ALLOW_INSECURE")
 	setString(k, "mtls.ca-path", "MTLS_CA_PATH", envPrefix+"MTLS_CA_PATH")
 	setString(k, "permissions.file", "PERMISSIONS_FILE", envPrefix+"PERMISSIONS_FILE")
 	setString(k, "observability.telemetry.service-name", envPrefix+"SERVICE_NAME")
