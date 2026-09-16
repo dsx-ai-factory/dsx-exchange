@@ -123,7 +123,7 @@ A load target for a feed — active or scheduled.
 | `interval.end_time` | string (date-time) | No | ISO 8601 UTC end time. If omitted, target remains in effect until replaced. |
 | `strategy` | [Strategy](schema-dsx-flex-schemas.mdx#strategy) | Yes | Load shedding strategy configuration. |
 | `strategy.best_effort` | boolean | No | If true, DSX Flex Agent sheds load non-disruptively by adjusting DPM-enabled jobs. If the constraint cannot be satisfied, DSX Flex Agent sheds as much as possible and leaves the feed in a non-compl... |
-| `correlation_id` | string (uuid) | Yes | The correlationid from the grid.loadtarget.set.v1 that created this target. |
+| `correlation_id` | string (uuid) | No | The correlationid from the grid.loadtarget.set.v1 that created this target. |
 
 ---
 

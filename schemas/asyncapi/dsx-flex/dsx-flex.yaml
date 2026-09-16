@@ -381,7 +381,7 @@ components:
     FeedTarget:
       type: object
       description: A load target for a feed — active or scheduled.
-      required: [active, load_constraint, interval, strategy, correlation_id]
+      required: [active, load_constraint, interval, strategy]
       properties:
         active:
           type: boolean
