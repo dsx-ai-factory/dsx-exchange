@@ -63,15 +63,14 @@ func NewOAuth2Authenticator(jwksURL string, issuer string, audience string, sign
 		return nil, err
 	}
 
-	jwksClient := &http.Client{
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			return validateJWKSRedirect(req, via, allowInsecureJWKS)
-		},
+	jwksClient := *http.DefaultClient
+	jwksClient.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		return validateJWKSRedirect(req, via, allowInsecureJWKS)
 	}
 
 	// Create JWKS client with automatic refresh - context controls lifecycle
 	ctx, cancel := context.WithCancel(context.Background())
-	k, err := keyfunc.NewDefaultOverrideCtx(ctx, []string{jwksURL}, keyfunc.Override{Client: jwksClient})
+	k, err := keyfunc.NewDefaultOverrideCtx(ctx, []string{jwksURL}, keyfunc.Override{Client: &jwksClient})
 	if err != nil {
 		cancel()
 		return nil, fmt.Errorf("failed to create JWKS client: %w", err)

@@ -39,6 +39,7 @@ nats:
 }
 
 func TestLoadAllowsJWKSConfigInEnvironment(t *testing.T) {
+	t.Setenv("JWKS_ALLOW_INSECURE", "")
 	t.Setenv("AUTH_CALLOUT_JWKS_SIGNING_ALGORITHMS", "RS256,ES256")
 	t.Setenv("AUTH_CALLOUT_JWKS_ALLOW_INSECURE", "true")
 
