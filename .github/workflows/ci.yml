@@ -32,6 +32,9 @@ jobs:
         with:
           fetch-depth: 0
       - uses: dsx-ai-factory/dsx-github-actions/.github/actions/commitlint@0969f64c3efa9e757135cbf457ea13cde4c3fa38 # v1.17.0
+        with:
+          # Copy PRs run as push events, so GITHUB_BASE_REF is unavailable.
+          from: ${{ startsWith(github.ref, 'refs/heads/pull-request/') && 'origin/main' || 'HEAD~1' }}
 
   license-headers:
     name: License Headers
