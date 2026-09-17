@@ -2,15 +2,16 @@
 
 Thank you for your interest in contributing to DSX Exchange.
 
-## Developer Certificate of Origin
+## Commit Sign-Off and Signature
 
-All contributions must include a Developer Certificate of Origin sign-off.
+All commits must include a Developer Certificate of Origin sign-off and a cryptographic signature.
 
 ```bash
-git commit -s -m "type(scope): short description"
+git commit -s -S -m "type(scope): short description"
 ```
 
 The sign-off certifies that you wrote the contribution or otherwise have the right to submit it under this repository's license. See [developercertificate.org](https://developercertificate.org/) for the full DCO text.
+The cryptographic signature allows the commit's authenticity to be verified.
 
 ## Pull Request Titles
 
