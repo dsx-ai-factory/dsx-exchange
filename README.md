@@ -101,7 +101,7 @@ DSX Exchange follows [Semantic Versioning](https://semver.org/) (`vX.Y.Z`), auto
 ### Release Candidates
 
 New release branches use the shared
-[RC workflow](https://github.com/dsx-ai-factory/dsx-github-actions/blob/7cfe73f4f82a9f6cdbc7c55eae9ecf37e11835ea/.github/workflows/release-candidate.yml).
+[RC workflow](https://github.com/dsx-ai-factory/dsx-github-actions/blob/8df35c7977860079c20cc00e1f8b590a6f634b1c/.github/workflows/release-candidate.yml).
 It owns version validation, immutable source tags, GitHub prereleases, and
 rerun handling. Exchange keeps its image and chart publishing jobs in
 [release-rc.yml](.github/workflows/release-rc.yml).
@@ -125,6 +125,11 @@ The `components-dev` environment must provide `NGC_DSX_COMPONENTS_PUSH_KEY`
 and restrict deployments to protected `release/*` branches. A failed artifact
 job can be rerun. The workflow verifies existing artifacts against the RC
 source commit and publishes only missing artifacts.
+
+Exchange passes its repository-scoped `RELEASE_DEPLOY_KEY` to the shared
+publisher because the existing tag rules authorize Deploy Keys. The key handles
+Git pushes; `GITHUB_TOKEN` still handles the GitHub Release API. No tag
+protection rule is relaxed.
 
 This workflow applies to new release branches created from main. Existing
 release branches retain their checked-in workflows. Do not copy this workflow
