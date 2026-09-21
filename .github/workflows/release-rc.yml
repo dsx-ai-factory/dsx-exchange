@@ -13,7 +13,7 @@ permissions:
 jobs:
   release:
     if: github.repository == 'dsx-ai-factory/dsx-exchange'
-    uses: dsx-ai-factory/dsx-github-actions/.github/workflows/release-candidate-publish.yml@0cb57ed6fc212c0e5c81ae325ba500d9111c508a
+    uses: dsx-ai-factory/dsx-github-actions/.github/workflows/release-candidate-publish.yml@bf93d001740f04ed5442d9f56d96994a49cb9172
     permissions:
       contents: write
     with:
