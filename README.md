@@ -98,6 +98,42 @@ DSX Exchange follows [Semantic Versioning](https://semver.org/) (`vX.Y.Z`), auto
 | `feat:` | Minor (Y) | New features, backward-compatible changes |
 | `feat!:` or `BREAKING CHANGE:` | Major (X) | Breaking API, schema, or chart changes |
 
+### Release Candidates
+
+New release branches use the shared
+[RC workflow](https://github.com/dsx-ai-factory/dsx-github-actions/blob/7cfe73f4f82a9f6cdbc7c55eae9ecf37e11835ea/.github/workflows/release-candidate.yml).
+It owns version validation, immutable source tags, GitHub prereleases, and
+rerun handling. Exchange keeps its image and chart publishing jobs in
+[release-rc.yml](.github/workflows/release-rc.yml).
+
+1. Create a protected `release/X.Y.Z` branch from main with this workflow.
+2. Choose the target that Conventional Commits imply. A different target fails
+   before publishing; the branch name does not force a version bump.
+3. Merge release changes through reviewed PRs. Qualifying commits produce
+   `vX.Y.Z-rc.N`; commits without release changes do not create a new RC.
+
+The shared workflow generates RC configuration for the current release branch.
+Do not add release branches to `.releaserc.json`; that file remains for stable
+releases from main. The existing `release.yml` stable publisher is unchanged.
+
+Each RC uses one version for these `components-dev` artifacts:
+
+- Images: `auth-callout` and `dsx-agentgateway-bridge`, for amd64 and arm64.
+- Charts: `auth-callout`, `nats-event-bus`, and `dsx-agent-gateway`.
+
+The `components-dev` environment must provide `NGC_DSX_COMPONENTS_PUSH_KEY`
+and restrict deployments to protected `release/*` branches. A failed artifact
+job can be rerun. The workflow verifies existing artifacts against the RC
+source commit and publishes only missing artifacts.
+
+This workflow applies to new release branches created from main. Existing
+release branches retain their checked-in workflows. Do not copy this workflow
+into an older branch without disabling that branch's previous RC publisher.
+PR validation runs shared contract tests through copy-pr-bot without publishing.
+
+See the [RC onboarding guide](https://github.com/dsx-ai-factory/dsx-github-actions/blob/main/docs/release-candidate-publishing.md)
+for branch protection, tag protection, outputs, and artifact integration.
+
 ### Roadmap
 
 Upcoming work is tracked in [GitHub Issues](https://github.com/dsx-ai-factory/dsx-exchange/issues). See [CONTRIBUTING.md](CONTRIBUTING.md) for how to get involved.
