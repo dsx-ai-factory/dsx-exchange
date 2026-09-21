@@ -100,44 +100,54 @@ DSX Exchange follows [Semantic Versioning](https://semver.org/) (`vX.Y.Z`), auto
 
 ### Release Candidates
 
-New release branches use the shared
-[RC workflow](https://github.com/dsx-ai-factory/dsx-github-actions/blob/8df35c7977860079c20cc00e1f8b590a6f634b1c/.github/workflows/release-candidate.yml).
-It owns version validation, immutable source tags, GitHub prereleases, and
-rerun handling. Exchange keeps its image and chart publishing jobs in
-[release-rc.yml](.github/workflows/release-rc.yml).
+New release branches use the shared `release-candidate-publish.yml` workflow through [release-rc.yml](.github/workflows/release-rc.yml).
+The caller pins a reviewed shared-workflow commit and supplies inline image and chart manifests.
+Shared jobs own manifest validation, source tags, GitHub prereleases, NGC publishing, and immutable-artifact checks.
+Exchange does not maintain RC publishing jobs or RC helper scripts.
 
-1. Create a protected `release/X.Y.Z` branch from main with this workflow.
-2. Choose the target that Conventional Commits imply. A different target fails
-   before publishing; the branch name does not force a version bump.
+1. Create a protected `release/X.Y.Z` branch from `main` with this workflow.
+2. Choose the target that Conventional Commits imply. A different target fails before publishing; the branch name does not force a version bump.
 3. Merge release changes through reviewed PRs. Qualifying commits produce
    `vX.Y.Z-rc.N`; commits without release changes do not create a new RC.
 
-The shared workflow generates RC configuration for the current release branch.
-Do not add release branches to `.releaserc.json`; that file remains for stable
-releases from main. The existing `release.yml` stable publisher is unchanged.
+The shared workflow validates manifest JSON and product paths before creating an RC tag.
+It generates RC configuration for the current release branch.
+Do not add release branches to `.releaserc.json`; that file remains for stable releases from `main`.
+The existing `release.yml` stable publisher is unchanged.
 
 Each RC uses one version for these `components-dev` artifacts:
 
-- Images: `auth-callout` and `dsx-agentgateway-bridge`, for amd64 and arm64.
+- Images: `auth-callout` and `dsx-agentgateway-bridge`, for fixed `linux/amd64` and `linux/arm64` platforms.
 - Charts: `auth-callout`, `nats-event-bus`, and `dsx-agent-gateway`.
 
-The `components-dev` environment must provide `NGC_DSX_COMPONENTS_PUSH_KEY`
-and restrict deployments to protected `release/*` branches. A failed artifact
-job can be rerun. The workflow verifies existing artifacts against the RC
-source commit and publishes only missing artifacts.
+The caller sets the required `runner: linux-amd64-cpu4`; the wrapper has no runner default.
+Image publishing requires Docker and a readable `/etc/buildkit/buildkitd.toml` on that runner.
+Preflight checks these prerequisites before source tag creation.
+The caller sets `environment: components-dev` and `ngc-path: 0837451325059433/components-dev`.
+The `components-dev` environment must provide `NGC_DSX_COMPONENTS_PUSH_KEY` and restrict deployments to approved protected release branches.
+Shared artifact jobs resolve this environment secret; the caller does not pass it through a workflow-level secret mapping.
+The `nats-event-bus` manifest explicitly declares its local `auth-callout` dependency at `auth-callout/deploy`.
+For a confirmed missing chart version, shared preparation aligns that dependency with the RC version before packaging.
 
-Exchange passes its repository-scoped `RELEASE_DEPLOY_KEY` to the shared
-publisher because the existing tag rules authorize Deploy Keys. The key handles
-Git pushes; `GITHUB_TOKEN` still handles the GitHub Release API. No tag
-protection rule is relaxed.
+Rerun the same workflow run after fixing an artifact failure, while its commit remains the release branch head.
+Shared jobs verify existing artifacts against the RC source commit and publish only missing artifacts.
+Chart jobs check a freshly fetched, authenticated NGC index before preparation and packaging.
+Matching charts skip dependency resolution and packaging; lookup errors do not count as missing versions.
+A mismatched artifact fails verification and is not overwritten.
 
-This workflow applies to new release branches created from main. Existing
-release branches retain their checked-in workflows. Do not copy this workflow
-into an older branch without disabling that branch's previous RC publisher.
-PR validation runs shared contract tests through copy-pr-bot without publishing.
+Exchange passes its repository-scoped `RELEASE_DEPLOY_KEY` as `release-deploy-key` to the wrapper.
+The wrapper forwards this optional secret only to the source publisher because Exchange tag rules authorize Deploy Keys.
+The key handles Git pushes; `GITHUB_TOKEN` still handles the GitHub Release API.
+No tag protection rule is relaxed.
 
-See the [RC onboarding guide](https://github.com/dsx-ai-factory/dsx-github-actions/blob/main/docs/release-candidate-publishing.md)
-for branch protection, tag protection, outputs, and artifact integration.
+This workflow applies to new release branches created from `main`.
+Existing release branches retain their checked-in workflows.
+Do not copy this workflow into an older branch without disabling that branch's previous RC publisher.
+PR validation runs shared contract checks and product manifest validation through copy-pr-bot without publishing or using the publishing environment.
+The shared `release-candidate.yml` remains available as a source-only workflow; it does not publish NGC artifacts.
+
+Refer to the [RC onboarding guide](https://github.com/dsx-ai-factory/dsx-github-actions/blob/main/docs/release-candidate-publishing.md) for manifests, access policy, artifact verification, and first-RC acceptance.
+Local checks do not establish that a real RC publication or rerun has passed.
 
 ### Roadmap
 
