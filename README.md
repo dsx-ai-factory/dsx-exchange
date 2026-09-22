@@ -98,6 +98,17 @@ DSX Exchange follows [Semantic Versioning](https://semver.org/) (`vX.Y.Z`), auto
 | `feat:` | Minor (Y) | New features, backward-compatible changes |
 | `feat!:` or `BREAKING CHANGE:` | Major (X) | Breaking API, schema, or chart changes |
 
+### Release Candidates
+
+1. Send feature PRs to `main`, which keeps its existing stable-release workflow.
+2. For QA, create a protected `release/X.Y.Z` branch from a tested `main` commit.
+3. Send release fixes to that branch, then bring the fixes back to `main` through PRs.
+
+Release-worthy commits on the release branch create `vX.Y.Z-rc.N` when the calculated version matches the branch target.
+The [shared workflow](.github/workflows/release-rc.yml) publishes matching images and charts directly to NGC. PR checks do not publish.
+
+For setup, version selection, or migrating an existing release branch, refer to the [RC guide](https://github.com/dsx-ai-factory/dsx-github-actions/blob/main/docs/release-candidate-publishing.md).
+
 ### Roadmap
 
 Upcoming work is tracked in [GitHub Issues](https://github.com/dsx-ai-factory/dsx-exchange/issues). See [CONTRIBUTING.md](CONTRIBUTING.md) for how to get involved.

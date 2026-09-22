@@ -1,0 +1,32 @@
+# Copyright 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+name: Release candidate
+
+on:
+  push:
+    branches: ["release/*", "pull-request/[0-9]+"]
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    if: github.repository == 'dsx-ai-factory/dsx-exchange'
+    uses: dsx-ai-factory/dsx-github-actions/.github/workflows/release-candidate-publish.yml@bf93d001740f04ed5442d9f56d96994a49cb9172
+    permissions:
+      contents: write
+    with:
+      runner: linux-amd64-cpu4
+      environment: components-dev
+      ngc-path: 0837451325059433/components-dev
+      images: >-
+        [{"name":"auth-callout","context":"auth-callout","dockerfile":"auth-callout/build/package/Dockerfile"},
+         {"name":"dsx-agentgateway-bridge","context":"dsx-agentgateway-bridge","dockerfile":"dsx-agentgateway-bridge/Dockerfile"}]
+      charts: >-
+        [{"name":"auth-callout","path":"auth-callout/deploy"},
+         {"name":"nats-event-bus","path":"deploy/nats-event-bus",
+          "localDependencies":[{"name":"auth-callout","path":"auth-callout/deploy"}]},
+         {"name":"dsx-agent-gateway","path":"deploy/dsx-agent-gateway"}]
+    secrets:
+      release-deploy-key: ${{ secrets.RELEASE_DEPLOY_KEY }}
