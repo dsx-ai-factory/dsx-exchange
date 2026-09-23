@@ -8,7 +8,7 @@ info:
   description: |
     AsyncAPI contract for weather forecasts published to DSX Exchange.
 
-    ## Topic namespace (v0.1.0)
+    ## Topic namespace
 
     `Weather/v1/PUB/{Forecast|Metadata}/{product}/{site}/{variable}`.
 
@@ -21,9 +21,12 @@ info:
 
     `{product}` separates forecast streams that publish the same site and variable.
 
-    ## Value / Metadata pattern
+    ## Forecast / Metadata pattern
     - **Forecast** (not retained): one bundle per site and variable containing the initialization
-      time, lead times, values, publication time, and optional ensemble and source details.
+      time, lead times, values, publication time, and optional ensemble and source details. The
+      latest bundle is republished periodically until the next cycle replaces it. A republished
+      bundle is identical to the original, including `initTime` and `publicationTime`. Consumers
+      use the bundle with the latest `initTime`.
     - **Metadata** (published at startup and republished periodically, typically every
       100 seconds as in the BMS contract): stable information such as units, location, model,
       horizon, cadence, and input data sources. Read Metadata before interpreting Forecast values.
@@ -36,7 +39,7 @@ info:
       to CF `forecast_period`.
     - Consumers calculate each valid time as
       `validTimeMs = initTime + leadSeconds * 1000`. It corresponds to CF `time`.
-    - `publicationTime` is when the bundle was sent to DSX, in Unix epoch milliseconds.
+    - `publicationTime` is when the bundle was first published, in Unix epoch milliseconds.
 
     ## Deterministic vs probabilistic (one contract)
 
@@ -64,10 +67,10 @@ info:
       compare array lengths, so producers and consumers must validate this rule separately.
 
 servers:
-  local:
-    host: localhost:1883
+  production:
+    host: broker.example.com
     protocol: mqtt
-    description: Example local DSX evaluation broker (no authentication).
+    description: MQTT broker for weather forecast events
 
 channels:
   forecast:
@@ -101,7 +104,9 @@ operations:
     action: send
     channel: {$ref: '#/channels/forecast'}
     messages: [{$ref: '#/channels/forecast/messages/forecast'}]
-    description: Publish one forecast bundle per site and variable for each cycle.
+    description: >
+      Publish one forecast bundle per site and variable for each cycle, and republish the latest
+      bundle periodically.
     bindings:
       mqtt:
         qos: 0
@@ -136,7 +141,13 @@ components:
       x-pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
       x-maxLength: 63
     site:
-      description: Provisional site identifier, such as a data-center location ID.
+      description: >
+        Provisional site identifier, such as a data center location ID. Limited to 63 characters
+        of lowercase letters and numbers with single hyphens as separators, so it forms one topic
+        level.
+      examples: [dc-site-1]
+      x-pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
+      x-maxLength: 63
     variable:
       enum: [Temperature, RelativeHumidity, WetBulb, WindU, WindV]
       description: Physical weather quantity being forecast.
@@ -172,7 +183,9 @@ components:
               null means that the value is unavailable.
           publicationTime:
             type: integer
-            description: Time when this bundle was published, in Unix epoch milliseconds.
+            description: >
+              Time when this bundle was first published, in Unix epoch milliseconds. Republished
+              copies keep the original value.
           model:
             type: string
             minLength: 1
@@ -232,15 +245,17 @@ components:
       title: Forecast Metadata
       contentType: application/json
       description: >
-        Time-invariant descriptor for a {site}/{variable} forecast point. Published at startup
-        and republished periodically. Defines the units/location for the Forecast values;
-        standardName/heightMeters anchor the wire {variable} to CF Conventions.
+        Time-invariant descriptor for a {product}/{site}/{variable} forecast point. Published at
+        startup and republished periodically. Defines the units and location for the Forecast
+        values; standardName/heightMeters anchor the wire {variable} to CF Conventions.
       payload:
         type: object
         required: [site, variable, unit, model]
         properties:
           site:
             type: string
+            pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
+            maxLength: 63
             description: "Provisional site identifier; must match {site} in the topic."
           variable:
             type: string
@@ -265,7 +280,7 @@ components:
             type: number
             minimum: 0
             description: >
-              Optional nominal height above ground in metres, such as 2 for near-surface
+              Optional nominal height above ground in meters, such as 2 for near-surface
               temperature or 10 for wind.
             examples: [2]
           model:
@@ -288,7 +303,7 @@ components:
             description: Maximum supported leadSeconds value for this forecast stream.
           issueCadenceSeconds:
             type: integer
-            minimum: 0
+            minimum: 1
             description: Nominal number of seconds between forecast cycles.
           inputs:
             type: array
