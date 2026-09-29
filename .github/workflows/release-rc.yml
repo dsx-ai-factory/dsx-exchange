@@ -4,17 +4,29 @@
 name: Release candidate
 
 on:
-  workflow_call:
-    secrets:
-      release-deploy-key:
-        required: false
+  push:
+    branches: ["release/*", "pull-request/[0-9]+"]
 
 permissions:
   contents: read
 
 jobs:
+  product-ci:
+    if: github.repository == 'dsx-ai-factory/dsx-exchange' && startsWith(github.ref, 'refs/heads/release/')
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: write
+      security-events: write
+
   release:
-    if: github.repository == 'dsx-ai-factory/dsx-exchange'
+    needs: product-ci
+    # CopyPR has its own CI run and can only validate RC declarations.
+    if: >-
+      !cancelled() && github.repository == 'dsx-ai-factory/dsx-exchange' &&
+      (needs.product-ci.result == 'success' ||
+       (needs.product-ci.result == 'skipped' && startsWith(github.ref, 'refs/heads/pull-request/')))
     uses: dsx-ai-factory/dsx-github-actions/.github/workflows/release-candidate-publish.yml@bf93d001740f04ed5442d9f56d96994a49cb9172
     permissions:
       contents: write
@@ -31,4 +43,4 @@ jobs:
           "localDependencies":[{"name":"auth-callout","path":"auth-callout/deploy"}]},
          {"name":"dsx-agent-gateway","path":"deploy/dsx-agent-gateway"}]
     secrets:
-      release-deploy-key: ${{ secrets.release-deploy-key }}
+      release-deploy-key: ${{ startsWith(github.ref, 'refs/heads/release/') && secrets.RELEASE_DEPLOY_KEY || '' }}

@@ -106,6 +106,7 @@ DSX Exchange follows [Semantic Versioning](https://semver.org/) (`vX.Y.Z`), auto
 
 Release-worthy commits on the release branch create `vX.Y.Z-rc.N` when the calculated version matches the branch target.
 RC publishing waits for that commit's product CI, including tests, Kind E2E, and security scans, to pass.
+The RC workflow reuses the existing CI workflow instead of listing its individual jobs.
 The [shared workflow](.github/workflows/release-rc.yml) publishes matching images and charts directly to NGC. PR checks do not publish.
 
 For setup, version selection, or migrating an existing release branch, refer to the [RC guide](https://github.com/dsx-ai-factory/dsx-github-actions/blob/main/docs/release-candidate-publishing.md).
