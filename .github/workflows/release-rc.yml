@@ -4,8 +4,10 @@
 name: Release candidate
 
 on:
-  push:
-    branches: ["release/*", "pull-request/[0-9]+"]
+  workflow_call:
+    secrets:
+      release-deploy-key:
+        required: false
 
 permissions:
   contents: read
@@ -29,4 +31,4 @@ jobs:
           "localDependencies":[{"name":"auth-callout","path":"auth-callout/deploy"}]},
          {"name":"dsx-agent-gateway","path":"deploy/dsx-agent-gateway"}]
     secrets:
-      release-deploy-key: ${{ secrets.RELEASE_DEPLOY_KEY }}
+      release-deploy-key: ${{ secrets.release-deploy-key }}

@@ -11,13 +11,14 @@ on:
     branches:
       - main
       - "pull-request/[0-9]+"
+      - "release/*"
 
 permissions:
   contents: read
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/heads/release/') }}
 
 env:
   GO_FLAGS: "-mod=vendor"
@@ -288,6 +289,37 @@ jobs:
   e2e-kind:
     name: E2E (Kind)
     uses: ./.github/workflows/e2e-kind.yml
+
+  release-candidate:
+    needs:
+      - commitlint
+      - license-headers
+      - fern-check
+      - go-lint
+      - unit-test
+      - unit-test-local-mqtt
+      - unit-test-local-mqttbs
+      - go-lint-agentgateway
+      - unit-test-agentgateway
+      - third-party-licenses
+      - docker-build
+      - docker-build-agentgateway
+      - codeql-scan
+      - trufflehog-scan
+      - security-container-scan
+      - helm-validate-auth-callout
+      - helm-validate-nats-event-bus
+      - helm-validate-dsx-agent-gateway
+      - e2e-kind
+    if: >-
+      github.repository == 'dsx-ai-factory/dsx-exchange' &&
+      (startsWith(github.ref, 'refs/heads/release/') ||
+       startsWith(github.ref, 'refs/heads/pull-request/'))
+    uses: ./.github/workflows/release-rc.yml
+    permissions:
+      contents: write
+    secrets:
+      release-deploy-key: ${{ startsWith(github.ref, 'refs/heads/release/') && secrets.RELEASE_DEPLOY_KEY || '' }}
 
   slack-notify:
     name: Slack Notification
