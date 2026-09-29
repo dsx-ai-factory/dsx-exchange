@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 jobs:
-  product-ci:
+  dsx-component-ci:
     if: github.repository == 'dsx-ai-factory/dsx-exchange' && startsWith(github.ref, 'refs/heads/release/')
     uses: ./.github/workflows/ci.yml
     permissions:
@@ -21,12 +21,12 @@ jobs:
       security-events: write
 
   release:
-    needs: product-ci
+    needs: dsx-component-ci
     # CopyPR has its own CI run and can only validate RC declarations.
     if: >-
       !cancelled() && github.repository == 'dsx-ai-factory/dsx-exchange' &&
-      (needs.product-ci.result == 'success' ||
-       (needs.product-ci.result == 'skipped' && startsWith(github.ref, 'refs/heads/pull-request/')))
+      (needs.dsx-component-ci.result == 'success' ||
+       (needs.dsx-component-ci.result == 'skipped' && startsWith(github.ref, 'refs/heads/pull-request/')))
     uses: dsx-ai-factory/dsx-github-actions/.github/workflows/release-candidate-publish.yml@bf93d001740f04ed5442d9f56d96994a49cb9172
     permissions:
       contents: write
