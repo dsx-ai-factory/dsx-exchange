@@ -195,11 +195,6 @@ components:
               $ref: "#/components/schemas/FailureDetails"
             machine_id:
               $ref: "#/components/schemas/MachineId"
-            retry_count:
-              default: 0
-              type: integer
-              format: uint32
-              minimum: 0.0
             state:
               type: string
               enum:
@@ -228,11 +223,6 @@ components:
           properties:
             reprovision_state:
               $ref: "#/components/schemas/HostReprovisionState"
-            retry_count:
-              default: 0
-              type: integer
-              format: uint32
-              minimum: 0.0
             state:
               type: string
               enum:

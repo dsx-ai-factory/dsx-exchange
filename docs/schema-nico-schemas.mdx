@@ -98,8 +98,8 @@ Machine moved to failed state. Recovery will be based on FailedCause
 | `details.failed_at` | string (date-time) | Yes |  |
 | `details.source` | [FailureSource](schema-nico-schemas.mdx#failuresource) | Yes |  |
 | `machine_id` | [MachineId](schema-nico-schemas.mdx#machineid) | Yes |  |
-| `retry_count` | integer | No |  |
 | `state` | string | Yes | Values: `failed` |
+| `retry_count` | integer | No |  |
 
 ### dpureprovision
 
@@ -118,8 +118,8 @@ State used to indicate that host reprovisioning is going on
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
 | `reprovision_state` | [HostReprovisionState](schema-nico-schemas.mdx#hostreprovisionstate) | Yes |  |
-| `retry_count` | integer | No |  |
 | `state` | string | Yes | Values: `hostreprovision` |
+| `retry_count` | integer | No |  |
 
 ### measuring
 
