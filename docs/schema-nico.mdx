@@ -83,7 +83,7 @@ components:
           timestamp:
             type: string
             format: date-time
-            description: ISO 8601 timestamp of the state change.
+            description: ISO 8601 timestamp when the state was observed for publishing, including periodic snapshots.
           managed_host_state:
             $ref: "#/components/schemas/ManagedHostState"
             description: The managed host state object with state name and details.
@@ -175,6 +175,8 @@ components:
               type: string
               enum:
                 - waitingforcleanup
+            cleanup_context:
+              $ref: '#/components/schemas/CleanupContext'
         - description:
             A forced deletion process has been triggered by the admin CLI State controller will no longer manage the
             Machine
@@ -215,6 +217,10 @@ components:
               type: string
               enum:
                 - failed
+            retry_count:
+              type: integer
+              minimum: 0
+              maximum: 4294967295
         - description: State used to indicate that DPU reprovisioning is going on.
           type: object
           required:
@@ -244,6 +250,10 @@ components:
               type: string
               enum:
                 - hostreprovision
+            retry_count:
+              type: integer
+              minimum: 0
+              maximum: 4294967295
         - description:
             State used to indicate the API is currently waiting on the machine to send attestation measurements, or waiting
             for measurements to match a valid/approved measurement bundle, before continuing on towards a Ready state.
@@ -260,11 +270,11 @@ components:
                 - measuring
         - type: object
           required:
-            - measuring_state
+            - attestation_mode
             - state
           properties:
-            measuring_state:
-              $ref: "#/components/schemas/MeasuringState"
+            attestation_mode:
+              $ref: "#/components/schemas/AttestationMode"
             state:
               type: string
               enum:
@@ -280,6 +290,137 @@ components:
               type: string
               enum:
                 - bomvalidating
+        - type: object
+          required:
+            - state
+            - decommissioning_state
+          properties:
+            state:
+              type: string
+              enum:
+                - decommissioning
+            decommissioning_state:
+              $ref: '#/components/schemas/DecommissioningState'
+        - type: object
+          required:
+            - state
+            - reset_state
+          properties:
+            state:
+              type: string
+              enum:
+                - reset
+            reset_state:
+              $ref: '#/components/schemas/ResetState'
+        - type: object
+          required:
+            - state
+            - desired_version
+            - desired_boot_interface
+            - post_lock_verification_retry_count
+            - boot_config_state
+          properties:
+            state:
+              type: string
+              enum:
+                - bootconfiguring
+            desired_version:
+              type: string
+              description: NICo configuration version serialized as a string.
+            desired_boot_interface:
+              $ref: '#/components/schemas/MachineBootInterfaceTarget'
+            post_lock_verification_retry_count:
+              type: integer
+              minimum: 0
+              maximum: 4294967295
+            boot_config_state:
+              $ref: '#/components/schemas/ReadyBootConfigState'
+        - type: object
+          required:
+            - state
+            - operation
+          properties:
+            state:
+              type: string
+              enum:
+                - maintenance
+            operation:
+              $ref: '#/components/schemas/MachineMaintenanceOperation'
+            request:
+              $ref: '#/components/schemas/MachineMaintenanceRequest'
+        - type: object
+          required:
+            - state
+            - configure_astra_state
+          properties:
+            state:
+              type: string
+              enum:
+                - configureastra
+            configure_astra_state:
+              $ref: '#/components/schemas/ConfigureAstraState'
+        - type: object
+          required:
+            - state
+            - retry_count
+          properties:
+            state:
+              type: string
+              enum:
+                - rotatingbmc
+            retry_count:
+              type: integer
+              minimum: 0
+              maximum: 4294967295
+        - type: object
+          required:
+            - state
+            - uefi_setup_info
+          properties:
+            state:
+              type: string
+              enum:
+                - rotatinghostuefi
+            uefi_setup_info:
+              $ref: '#/components/schemas/UefiSetupInfo'
+        - type: object
+          required:
+            - state
+            - dpu_machine_id
+          properties:
+            state:
+              type: string
+              enum:
+                - rotatingdpuuefi
+            dpu_machine_id:
+              $ref: '#/components/schemas/MachineId'
+        - type: object
+          required:
+            - state
+          properties:
+            state:
+              type: string
+              enum:
+                - rotatingniclockdown
+        - type: object
+          required:
+            - state
+            - spdm_measuring_state
+          properties:
+            state:
+              type: string
+              enum:
+                - preassignedmeasuring
+            spdm_measuring_state:
+              $ref: '#/components/schemas/SpdmMeasuringState'
+        - type: object
+          required:
+            - state
+          properties:
+            state:
+              type: string
+              enum:
+                - startassignmentcycle
     BmcFirmwareUpgradeSubstate:
       oneOf:
         - type: object
@@ -1636,6 +1777,10 @@ components:
           type:
             - string
             - "null"
+        retry_count:
+          type: integer
+          minimum: 0
+          maximum: 4294967295
         set_boot_order_state:
           $ref: "#/components/schemas/SetBootOrderState"
     SetBootOrderState:
@@ -1672,6 +1817,28 @@ components:
               type: string
               enum:
                 - waitforsetbootorderjobcompletion
+        - type: object
+          required: [state]
+          properties:
+            state:
+              type: string
+              enum: [waitforhttpbootdeviceapplied]
+        - type: object
+          required: [state, failure, power_state]
+          properties:
+            state:
+              type: string
+              enum: [handlejobfailure]
+            failure:
+              type: string
+            power_state:
+              $ref: '#/components/schemas/PowerState'
+        - type: object
+          required: [state]
+          properties:
+            state:
+              type: string
+              enum: [checkbootorder]
     SetSecureBootState:
       oneOf:
         - type: object
@@ -1738,6 +1905,10 @@ components:
           type:
             - string
             - "null"
+        credential_version:
+          type: integer
+          minimum: 0
+          maximum: 4294967295
         uefi_setup_state:
           $ref: "#/components/schemas/UefiSetupState"
     UefiSetupState:
@@ -1807,6 +1978,605 @@ components:
               type: string
               enum:
                 - machinevalidation
+
+    AttestationMode:
+      oneOf:
+        - type: object
+          required:
+            - measuredboot
+          properties:
+            measuredboot:
+              type: object
+              required:
+                - measuring_state
+              properties:
+                measuring_state:
+                  $ref: '#/components/schemas/MeasuringState'
+          additionalProperties: false
+        - type: object
+          required:
+            - spdmattestation
+          properties:
+            spdmattestation:
+              type: object
+              required:
+                - spdm_measuring_state
+              properties:
+                spdm_measuring_state:
+                  $ref: '#/components/schemas/SpdmMeasuringState'
+          additionalProperties: false
+    SpdmMeasuringState:
+      type: string
+      enum:
+        - triggermeasurements
+        - pollresult
+    ResetState:
+      type: string
+      enum:
+        - deletinginstance
+        - deletingcrs
+    ConfigureAstraState:
+      oneOf:
+        - type: object
+          required:
+            - state
+          properties:
+            state:
+              type: string
+              enum:
+                - enablenics
+        - type: object
+          required:
+            - state
+          properties:
+            state:
+              type: string
+              enum:
+                - waitingforpowercycle
+    DecommissioningState:
+      oneOf:
+        - type: object
+          required:
+            - state
+          properties:
+            state:
+              type: string
+              enum:
+                - suppressingsiteexplorer
+        - type: object
+          required:
+            - state
+            - deconfiguring_state
+          properties:
+            state:
+              type: string
+              enum:
+                - deconfiguringhost
+            deconfiguring_state:
+              $ref: '#/components/schemas/DeconfiguringHostState'
+        - type: object
+          required:
+            - state
+            - dpu_states
+          properties:
+            state:
+              type: string
+              enum:
+                - deconfiguringdpus
+            dpu_states:
+              type: object
+              additionalProperties:
+                $ref: '#/components/schemas/DeconfiguringDpuState'
+        - type: object
+          required:
+            - state
+          properties:
+            state:
+              type: string
+              enum:
+                - suppressingoobdhcp
+        - type: object
+          required:
+            - state
+          properties:
+            state:
+              type: string
+              enum:
+                - powercyclinghost
+        - type: object
+          required:
+            - state
+          properties:
+            state:
+              type: string
+              enum:
+                - poweringonhost
+        - type: object
+          required:
+            - state
+          properties:
+            state:
+              type: string
+              enum:
+                - waitingforoobdhcpacknowledgement
+        - type: object
+          required:
+            - state
+          properties:
+            state:
+              type: string
+              enum:
+                - suppressingbmcdhcp
+        - type: object
+          required:
+            - state
+            - completed
+          properties:
+            state:
+              type: string
+              enum:
+                - factoryresettingbmcs
+            completed:
+              type: array
+              uniqueItems: true
+              items:
+                $ref: '#/components/schemas/MachineId'
+        - type: object
+          required:
+            - state
+          properties:
+            state:
+              type: string
+              enum:
+                - waitingforbmcdhcpacknowledgement
+        - type: object
+          required:
+            - state
+          properties:
+            state:
+              type: string
+              enum:
+                - deletingmanagedcredentials
+        - type: object
+          required:
+            - state
+          properties:
+            state:
+              type: string
+              enum:
+                - decommissioned
+    DeconfiguringHostState:
+      oneOf:
+        - type: object
+          required:
+            - state
+          properties:
+            state:
+              type: string
+              enum:
+                - disablelockdown
+        - type: object
+          required:
+            - state
+          properties:
+            state:
+              type: string
+              enum:
+                - rebootafterlockdown
+        - type: object
+          required:
+            - state
+          properties:
+            state:
+              type: string
+              enum:
+                - clearsuperniclockdown
+        - type: object
+          required:
+            - state
+          properties:
+            state:
+              type: string
+              enum:
+                - waitforsuperniclockdown
+        - type: object
+          required:
+            - state
+          properties:
+            state:
+              type: string
+              enum:
+                - clearuefipassword
+        - type: object
+          required:
+            - state
+            - job_id
+          properties:
+            state:
+              type: string
+              enum:
+                - waitforuefipasswordjobscheduled
+            job_id:
+              type: string
+        - type: object
+          required:
+            - state
+            - job_id
+          properties:
+            state:
+              type: string
+              enum:
+                - rebootafteruefipassword
+            job_id:
+              type: string
+        - type: object
+          required:
+            - state
+            - job_id
+          properties:
+            state:
+              type: string
+              enum:
+                - waitforuefipasswordjobcompletion
+            job_id:
+              type: string
+        - type: object
+          required:
+            - state
+          properties:
+            state:
+              type: string
+              enum:
+                - resetuefisettings
+    DeconfiguringDpuState:
+      oneOf:
+        - type: object
+          required:
+            - state
+          properties:
+            state:
+              type: string
+              enum:
+                - deletingfromdpf
+        - type: object
+          required:
+            - state
+          properties:
+            state:
+              type: string
+              enum:
+                - installingbfb
+        - type: object
+          required:
+            - state
+            - task_id
+          properties:
+            state:
+              type: string
+              enum:
+                - waitforinstallcomplete
+            task_id:
+              type: string
+        - type: object
+          required:
+            - state
+          properties:
+            state:
+              type: string
+              enum:
+                - waitingforbootafterbfbinstall
+        - type: object
+          required:
+            - state
+          properties:
+            state:
+              type: string
+              enum:
+                - complete
+    MachineMaintenanceOperation:
+      oneOf:
+        - type: object
+          required:
+            - operation
+          properties:
+            operation:
+              type: string
+              enum:
+                - poweron
+        - type: object
+          required:
+            - operation
+          properties:
+            operation:
+              type: string
+              enum:
+                - poweroff
+        - type: object
+          required:
+            - operation
+          properties:
+            operation:
+              type: string
+              enum:
+                - reset
+        - type: object
+          required:
+            - operation
+            - chassis_id
+          properties:
+            operation:
+              type: string
+              enum:
+                - chassisreset
+            chassis_id:
+              type: string
+    MachineMaintenanceRequest:
+      type: object
+      required:
+        - requested_at
+        - initiator
+        - operation
+      properties:
+        requested_at:
+          type: string
+          format: date-time
+        initiator:
+          type: string
+        operation:
+          $ref: '#/components/schemas/MachineMaintenanceOperation'
+    MachineBootInterfaceTarget:
+      oneOf:
+        - type: object
+          required:
+            - Pair
+          properties:
+            Pair:
+              type: object
+              required:
+                - MacAddress
+                - InterfaceId
+              properties:
+                MacAddress:
+                  type: string
+                InterfaceId:
+                  type: string
+          additionalProperties: false
+        - type: object
+          required:
+            - MacOnly
+          properties:
+            MacOnly:
+              type: string
+          additionalProperties: false
+    ReadyBootConfigState:
+      oneOf:
+        - type: object
+          required:
+            - state
+          properties:
+            state:
+              type: string
+              enum:
+                - prepare
+        - type: object
+          required:
+            - state
+            - unlock_host_state
+          properties:
+            state:
+              type: string
+              enum:
+                - unlockhost
+            unlock_host_state:
+              $ref: '#/components/schemas/UnlockHostState'
+        - type: object
+          required:
+            - state
+          properties:
+            state:
+              type: string
+              enum:
+                - checkhostconfig
+        - type: object
+          required:
+            - state
+            - retry_count
+          properties:
+            state:
+              type: string
+              enum:
+                - configurebios
+            retry_count:
+              type: integer
+              minimum: 0
+              maximum: 4294967295
+        - type: object
+          required:
+            - state
+            - bios_config_info
+          properties:
+            state:
+              type: string
+              enum:
+                - waitingforbiosjob
+            bios_config_info:
+              $ref: '#/components/schemas/BiosConfigInfo'
+        - type: object
+          required:
+            - state
+            - retry_count
+          properties:
+            state:
+              type: string
+              enum:
+                - pollingbiossetup
+            retry_count:
+              type: integer
+              minimum: 0
+              maximum: 4294967295
+        - type: object
+          required:
+            - state
+            - set_boot_order_info
+          properties:
+            state:
+              type: string
+              enum:
+                - setbootorder
+            set_boot_order_info:
+              $ref: '#/components/schemas/SetBootOrderInfo'
+        - type: object
+          required:
+            - state
+          properties:
+            state:
+              type: string
+              enum:
+                - lockhost
+            terminal_failure:
+              $ref: '#/components/schemas/ReadyBootConfigPostLockAction'
+        - type: object
+          required:
+            - state
+            - failure
+          properties:
+            state:
+              type: string
+              enum:
+                - failed
+            failure:
+              type: string
+    ReadyBootConfigPostLockAction:
+      oneOf:
+        - type: object
+          required:
+            - kind
+          properties:
+            kind:
+              type: string
+              enum:
+                - return_to_prepare
+        - type: object
+          required:
+            - kind
+            - failure
+          properties:
+            kind:
+              type: string
+              enum:
+                - convergence
+            failure:
+              type: string
+        - type: object
+          required:
+            - kind
+            - machine_id
+            - details
+          properties:
+            kind:
+              type: string
+              enum:
+                - machine
+            machine_id:
+              $ref: '#/components/schemas/MachineId'
+            details:
+              $ref: '#/components/schemas/FailureDetails'
+    UnlockHostState:
+      oneOf:
+        - type: object
+          required:
+            - state
+          properties:
+            state:
+              type: string
+              enum:
+                - disablelockdown
+        - type: object
+          required:
+            - state
+          properties:
+            state:
+              type: string
+              enum:
+                - reboothost
+        - type: object
+          required:
+            - state
+          properties:
+            state:
+              type: string
+              enum:
+                - waitforuefiboot
+    BiosConfigInfo:
+      type: object
+      required:
+        - bios_config_state
+        - retry_count
+      properties:
+        bios_job_id:
+          type: string
+        bios_config_state:
+          $ref: '#/components/schemas/BiosConfigState'
+        retry_count:
+          type: integer
+          minimum: 0
+          maximum: 4294967295
+    BiosConfigState:
+      oneOf:
+        - type: object
+          required:
+            - state
+          properties:
+            state:
+              type: string
+              enum:
+                - waitforbiosjobscheduled
+        - type: object
+          required:
+            - state
+          properties:
+            state:
+              type: string
+              enum:
+                - reboothost
+        - type: object
+          required:
+            - state
+          properties:
+            state:
+              type: string
+              enum:
+                - waitforbiosjobcompletion
+        - type: object
+          required:
+            - state
+            - failure
+            - power_state
+          properties:
+            state:
+              type: string
+              enum:
+                - handlebiosjobfailure
+            failure:
+              type: string
+            power_state:
+              $ref: '#/components/schemas/PowerState'
+    PowerState:
+      type: string
+      enum:
+        - 'Off'
+        - 'On'
+        - PoweringOff
+        - PoweringOn
+        - Paused
+        - Reset
+        - Unknown
+    CleanupContext:
+      type: string
+      enum:
+        - deprovision
+        - initialdiscovery
+        - reset
 ````
 
 </Accordion>
