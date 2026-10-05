@@ -31,6 +31,9 @@ settings:
 #==============================================================================
 
 navigation:
+  - page: Deploying Release Candidates
+    path: ../docs/release-candidates.md
+    slug: release-candidates
   - section: DSX Event Bus
     skip-slug: true
     contents:
