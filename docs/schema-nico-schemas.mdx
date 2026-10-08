@@ -69,6 +69,7 @@ Some cleanup is going on.
 |------|------|----------|-------------|
 | `cleanup_state` | [CleanupState](schema-nico-schemas.mdx#cleanupstate) | Yes |  |
 | `state` | string | Yes | Values: `waitingforcleanup` |
+| `cleanup_context` | [CleanupContext](schema-nico-schemas.mdx#cleanupcontext) | No | Values: `deprovision`, `initialdiscovery`, `reset` |
 
 ### forcedeletion
 
@@ -97,8 +98,8 @@ Machine moved to failed state. Recovery will be based on FailedCause
 | `details.failed_at` | string (date-time) | Yes |  |
 | `details.source` | [FailureSource](schema-nico-schemas.mdx#failuresource) | Yes |  |
 | `machine_id` | [MachineId](schema-nico-schemas.mdx#machineid) | Yes |  |
-| `retry_count` | integer (uint32) | No |  |
 | `state` | string | Yes | Values: `failed` |
+| `retry_count` | integer | No |  |
 
 ### dpureprovision
 
@@ -117,8 +118,8 @@ State used to indicate that host reprovisioning is going on
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
 | `reprovision_state` | [HostReprovisionState](schema-nico-schemas.mdx#hostreprovisionstate) | Yes |  |
-| `retry_count` | integer (uint32) | No |  |
 | `state` | string | Yes | Values: `hostreprovision` |
+| `retry_count` | integer | No |  |
 
 ### measuring
 
@@ -133,7 +134,7 @@ State used to indicate the API is currently waiting on the machine to send attes
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| `measuring_state` | [MeasuringState](schema-nico-schemas.mdx#measuringstate) | Yes | MeasuringState contains states used for host attestion (or measured boot). |
+| `attestation_mode` | [AttestationMode](schema-nico-schemas.mdx#attestationmode) | Yes |  |
 | `state` | string | Yes | Values: `postassignedmeasuring` |
 
 ### bomvalidating
@@ -142,6 +143,91 @@ State used to indicate the API is currently waiting on the machine to send attes
 |------|------|----------|-------------|
 | `bom_validating_state` | [BomValidating](schema-nico-schemas.mdx#bomvalidating) | Yes |  |
 | `state` | string | Yes | Values: `bomvalidating` |
+
+### decommissioning
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `state` | string | Yes | Values: `decommissioning` |
+| `decommissioning_state` | [DecommissioningState](schema-nico-schemas.mdx#decommissioningstate) | Yes |  |
+
+### reset
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `state` | string | Yes | Values: `reset` |
+| `reset_state` | [ResetState](schema-nico-schemas.mdx#resetstate) | Yes | Values: `deletinginstance`, `deletingcrs` |
+
+### bootconfiguring
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `state` | string | Yes | Values: `bootconfiguring` |
+| `desired_version` | string | Yes | NICo configuration version serialized as a string. |
+| `desired_boot_interface` | [MachineBootInterfaceTarget](schema-nico-schemas.mdx#machinebootinterfacetarget) | Yes |  |
+| `post_lock_verification_retry_count` | integer | Yes |  |
+| `boot_config_state` | [ReadyBootConfigState](schema-nico-schemas.mdx#readybootconfigstate) | Yes |  |
+
+### maintenance
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `state` | string | Yes | Values: `maintenance` |
+| `operation` | [MachineMaintenanceOperation](schema-nico-schemas.mdx#machinemaintenanceoperation) | Yes |  |
+| `request` | [MachineMaintenanceRequest](schema-nico-schemas.mdx#machinemaintenancerequest) | No |  |
+| `request.requested_at` | string (date-time) | Yes |  |
+| `request.initiator` | string | Yes |  |
+| `request.operation` | [MachineMaintenanceOperation](schema-nico-schemas.mdx#machinemaintenanceoperation) | Yes |  |
+
+### configureastra
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `state` | string | Yes | Values: `configureastra` |
+| `configure_astra_state` | [ConfigureAstraState](schema-nico-schemas.mdx#configureastrastate) | Yes |  |
+
+### rotatingbmc
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `state` | string | Yes | Values: `rotatingbmc` |
+| `retry_count` | integer | Yes |  |
+
+### rotatinghostuefi
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `state` | string | Yes | Values: `rotatinghostuefi` |
+| `uefi_setup_info` | [UefiSetupInfo](schema-nico-schemas.mdx#uefisetupinfo) | Yes |  |
+| `uefi_setup_info.uefi_password_jid` | string or null | No |  |
+| `uefi_setup_info.credential_version` | integer | No |  |
+| `uefi_setup_info.uefi_setup_state` | [UefiSetupState](schema-nico-schemas.mdx#uefisetupstate) | Yes | Substates of enabling/disabling lockdown |
+
+### rotatingdpuuefi
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `state` | string | Yes | Values: `rotatingdpuuefi` |
+| `dpu_machine_id` | [MachineId](schema-nico-schemas.mdx#machineid) | Yes |  |
+
+### rotatingniclockdown
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `state` | string | Yes | Values: `rotatingniclockdown` |
+
+### preassignedmeasuring
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `state` | string | Yes | Values: `preassignedmeasuring` |
+| `spdm_measuring_state` | [SpdmMeasuringState](schema-nico-schemas.mdx#spdmmeasuringstate) | Yes | Values: `triggermeasurements`, `pollresult` |
+
+### startassignmentcycle
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `state` | string | Yes | Values: `startassignmentcycle` |
 
 ---
 
@@ -618,6 +704,7 @@ A context for passing information between states thoughout the BOM validation pr
 |------|------|----------|-------------|
 | `set_boot_order_info` | [SetBootOrderInfo](schema-nico-schemas.mdx#setbootorderinfo) | Yes |  |
 | `set_boot_order_info.set_boot_order_jid` | string or null | No |  |
+| `set_boot_order_info.retry_count` | integer | No |  |
 | `set_boot_order_info.set_boot_order_state` | [SetBootOrderState](schema-nico-schemas.mdx#setbootorderstate) | Yes |  |
 | `state` | string | Yes | Values: `setbootorder` |
 
@@ -936,6 +1023,7 @@ Whether lockdown should be enabled or disabled in an operation
 | `state` | string | Yes | Values: `uefisetup` |
 | `uefi_setup_info` | [UefiSetupInfo](schema-nico-schemas.mdx#uefisetupinfo) | Yes |  |
 | `uefi_setup_info.uefi_password_jid` | string or null | No |  |
+| `uefi_setup_info.credential_version` | integer | No |  |
 | `uefi_setup_info.uefi_setup_state` | [UefiSetupState](schema-nico-schemas.mdx#uefisetupstate) | Yes | Substates of enabling/disabling lockdown |
 
 ### measuring
@@ -1115,6 +1203,7 @@ Tenant has requested network config update for the existing instance. At this po
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
 | `set_boot_order_jid` | string or null | No |  |
+| `retry_count` | integer | No |  |
 | `set_boot_order_state` | [SetBootOrderState](schema-nico-schemas.mdx#setbootorderstate) | Yes |  |
 
 ---
@@ -1144,6 +1233,26 @@ Tenant has requested network config update for the existing instance. At this po
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
 | `state` | string | Yes | Values: `waitforsetbootorderjobcompletion` |
+
+### waitforhttpbootdeviceapplied
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `state` | string | Yes | Values: `waitforhttpbootdeviceapplied` |
+
+### handlejobfailure
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `state` | string | Yes | Values: `handlejobfailure` |
+| `failure` | string | Yes |  |
+| `power_state` | [PowerState](schema-nico-schemas.mdx#powerstate) | Yes | Values: `Off`, `On`, `PoweringOff`, `PoweringOn`, `Paused`, `Reset`, `Unknown` |
+
+### checkbootorder
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `state` | string | Yes | Values: `checkbootorder` |
 
 ---
 
@@ -1194,6 +1303,7 @@ Tenant has requested network config update for the existing instance. At this po
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
 | `uefi_password_jid` | string or null | No |  |
+| `credential_version` | integer | No |  |
 | `uefi_setup_state` | [UefiSetupState](schema-nico-schemas.mdx#uefisetupstate) | Yes | Substates of enabling/disabling lockdown |
 
 ---
@@ -1250,5 +1360,456 @@ Substates of enabling/disabling lockdown
 |------|------|----------|-------------|
 | `machine_validation` | [MachineValidatingState](schema-nico-schemas.mdx#machinevalidatingstate) | Yes |  |
 | `validation_type` | string | Yes | Values: `machinevalidation` |
+
+---
+
+## AttestationMode
+
+### Variant 1
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `measuredboot` | object | Yes |  |
+| `measuredboot.measuring_state` | [MeasuringState](schema-nico-schemas.mdx#measuringstate) | Yes | MeasuringState contains states used for host attestion (or measured boot). |
+
+### Variant 2
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `spdmattestation` | object | Yes |  |
+| `spdmattestation.spdm_measuring_state` | [SpdmMeasuringState](schema-nico-schemas.mdx#spdmmeasuringstate) | Yes | Values: `triggermeasurements`, `pollresult` |
+
+---
+
+## SpdmMeasuringState
+
+**Allowed values:** `triggermeasurements`, `pollresult`
+
+---
+
+## ResetState
+
+**Allowed values:** `deletinginstance`, `deletingcrs`
+
+---
+
+## ConfigureAstraState
+
+### enablenics
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `state` | string | Yes | Values: `enablenics` |
+
+### waitingforpowercycle
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `state` | string | Yes | Values: `waitingforpowercycle` |
+
+---
+
+## DecommissioningState
+
+### suppressingsiteexplorer
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `state` | string | Yes | Values: `suppressingsiteexplorer` |
+
+### deconfiguringhost
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `state` | string | Yes | Values: `deconfiguringhost` |
+| `deconfiguring_state` | [DeconfiguringHostState](schema-nico-schemas.mdx#deconfiguringhoststate) | Yes |  |
+
+### deconfiguringdpus
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `state` | string | Yes | Values: `deconfiguringdpus` |
+| `dpu_states` | map&lt;string, [DeconfiguringDpuState](schema-nico-schemas.mdx#deconfiguringdpustate)&gt; | Yes |  |
+
+### suppressingoobdhcp
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `state` | string | Yes | Values: `suppressingoobdhcp` |
+
+### powercyclinghost
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `state` | string | Yes | Values: `powercyclinghost` |
+
+### poweringonhost
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `state` | string | Yes | Values: `poweringonhost` |
+
+### waitingforoobdhcpacknowledgement
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `state` | string | Yes | Values: `waitingforoobdhcpacknowledgement` |
+
+### suppressingbmcdhcp
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `state` | string | Yes | Values: `suppressingbmcdhcp` |
+
+### factoryresettingbmcs
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `state` | string | Yes | Values: `factoryresettingbmcs` |
+| `completed` | array&lt;[MachineId](schema-nico-schemas.mdx#machineid)&gt; | Yes |  |
+
+### waitingforbmcdhcpacknowledgement
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `state` | string | Yes | Values: `waitingforbmcdhcpacknowledgement` |
+
+### deletingmanagedcredentials
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `state` | string | Yes | Values: `deletingmanagedcredentials` |
+
+### decommissioned
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `state` | string | Yes | Values: `decommissioned` |
+
+---
+
+## DeconfiguringHostState
+
+### disablelockdown
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `state` | string | Yes | Values: `disablelockdown` |
+
+### rebootafterlockdown
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `state` | string | Yes | Values: `rebootafterlockdown` |
+
+### clearsuperniclockdown
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `state` | string | Yes | Values: `clearsuperniclockdown` |
+
+### waitforsuperniclockdown
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `state` | string | Yes | Values: `waitforsuperniclockdown` |
+
+### clearuefipassword
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `state` | string | Yes | Values: `clearuefipassword` |
+
+### waitforuefipasswordjobscheduled
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `state` | string | Yes | Values: `waitforuefipasswordjobscheduled` |
+| `job_id` | string | Yes |  |
+
+### rebootafteruefipassword
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `state` | string | Yes | Values: `rebootafteruefipassword` |
+| `job_id` | string | Yes |  |
+
+### waitforuefipasswordjobcompletion
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `state` | string | Yes | Values: `waitforuefipasswordjobcompletion` |
+| `job_id` | string | Yes |  |
+
+### resetuefisettings
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `state` | string | Yes | Values: `resetuefisettings` |
+
+---
+
+## DeconfiguringDpuState
+
+### deletingfromdpf
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `state` | string | Yes | Values: `deletingfromdpf` |
+
+### installingbfb
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `state` | string | Yes | Values: `installingbfb` |
+
+### waitforinstallcomplete
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `state` | string | Yes | Values: `waitforinstallcomplete` |
+| `task_id` | string | Yes |  |
+
+### waitingforbootafterbfbinstall
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `state` | string | Yes | Values: `waitingforbootafterbfbinstall` |
+
+### complete
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `state` | string | Yes | Values: `complete` |
+
+---
+
+## MachineMaintenanceOperation
+
+### Variant 1
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `operation` | string | Yes | Values: `poweron` |
+
+### Variant 2
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `operation` | string | Yes | Values: `poweroff` |
+
+### Variant 3
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `operation` | string | Yes | Values: `reset` |
+
+### Variant 4
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `operation` | string | Yes | Values: `chassisreset` |
+| `chassis_id` | string | Yes |  |
+
+---
+
+## MachineMaintenanceRequest
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `requested_at` | string (date-time) | Yes |  |
+| `initiator` | string | Yes |  |
+| `operation` | [MachineMaintenanceOperation](schema-nico-schemas.mdx#machinemaintenanceoperation) | Yes |  |
+
+---
+
+## MachineBootInterfaceTarget
+
+### Variant 1
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `Pair` | object | Yes |  |
+| `Pair.MacAddress` | string | Yes |  |
+| `Pair.InterfaceId` | string | Yes |  |
+
+### Variant 2
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `MacOnly` | string | Yes |  |
+
+---
+
+## ReadyBootConfigState
+
+### prepare
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `state` | string | Yes | Values: `prepare` |
+
+### unlockhost
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `state` | string | Yes | Values: `unlockhost` |
+| `unlock_host_state` | [UnlockHostState](schema-nico-schemas.mdx#unlockhoststate) | Yes |  |
+
+### checkhostconfig
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `state` | string | Yes | Values: `checkhostconfig` |
+
+### configurebios
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `state` | string | Yes | Values: `configurebios` |
+| `retry_count` | integer | Yes |  |
+
+### waitingforbiosjob
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `state` | string | Yes | Values: `waitingforbiosjob` |
+| `bios_config_info` | [BiosConfigInfo](schema-nico-schemas.mdx#biosconfiginfo) | Yes |  |
+| `bios_config_info.bios_job_id` | string | No |  |
+| `bios_config_info.bios_config_state` | [BiosConfigState](schema-nico-schemas.mdx#biosconfigstate) | Yes |  |
+| `bios_config_info.retry_count` | integer | Yes |  |
+
+### pollingbiossetup
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `state` | string | Yes | Values: `pollingbiossetup` |
+| `retry_count` | integer | Yes |  |
+
+### setbootorder
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `state` | string | Yes | Values: `setbootorder` |
+| `set_boot_order_info` | [SetBootOrderInfo](schema-nico-schemas.mdx#setbootorderinfo) | Yes |  |
+| `set_boot_order_info.set_boot_order_jid` | string or null | No |  |
+| `set_boot_order_info.retry_count` | integer | No |  |
+| `set_boot_order_info.set_boot_order_state` | [SetBootOrderState](schema-nico-schemas.mdx#setbootorderstate) | Yes |  |
+
+### lockhost
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `state` | string | Yes | Values: `lockhost` |
+| `terminal_failure` | [ReadyBootConfigPostLockAction](schema-nico-schemas.mdx#readybootconfigpostlockaction) | No |  |
+
+### failed
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `state` | string | Yes | Values: `failed` |
+| `failure` | string | Yes |  |
+
+---
+
+## ReadyBootConfigPostLockAction
+
+### Variant 1
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `kind` | string | Yes | Values: `return_to_prepare` |
+
+### Variant 2
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `kind` | string | Yes | Values: `convergence` |
+| `failure` | string | Yes |  |
+
+### Variant 3
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `kind` | string | Yes | Values: `machine` |
+| `machine_id` | [MachineId](schema-nico-schemas.mdx#machineid) | Yes |  |
+| `details` | [FailureDetails](schema-nico-schemas.mdx#failuredetails) | Yes |  |
+| `details.cause` | [FailureCause](schema-nico-schemas.mdx#failurecause) | Yes |  |
+| `details.failed_at` | string (date-time) | Yes |  |
+| `details.source` | [FailureSource](schema-nico-schemas.mdx#failuresource) | Yes |  |
+
+---
+
+## UnlockHostState
+
+### disablelockdown
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `state` | string | Yes | Values: `disablelockdown` |
+
+### reboothost
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `state` | string | Yes | Values: `reboothost` |
+
+### waitforuefiboot
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `state` | string | Yes | Values: `waitforuefiboot` |
+
+---
+
+## BiosConfigInfo
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `bios_job_id` | string | No |  |
+| `bios_config_state` | [BiosConfigState](schema-nico-schemas.mdx#biosconfigstate) | Yes |  |
+| `retry_count` | integer | Yes |  |
+
+---
+
+## BiosConfigState
+
+### waitforbiosjobscheduled
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `state` | string | Yes | Values: `waitforbiosjobscheduled` |
+
+### reboothost
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `state` | string | Yes | Values: `reboothost` |
+
+### waitforbiosjobcompletion
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `state` | string | Yes | Values: `waitforbiosjobcompletion` |
+
+### handlebiosjobfailure
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `state` | string | Yes | Values: `handlebiosjobfailure` |
+| `failure` | string | Yes |  |
+| `power_state` | [PowerState](schema-nico-schemas.mdx#powerstate) | Yes | Values: `Off`, `On`, `PoweringOff`, `PoweringOn`, `Paused`, `Reset`, `Unknown` |
+
+---
+
+## PowerState
+
+**Allowed values:** `Off`, `On`, `PoweringOff`, `PoweringOn`, `Paused`, `Reset`, `Unknown`
+
+---
+
+## CleanupContext
+
+**Allowed values:** `deprovision`, `initialdiscovery`, `reset`
 
 ---
