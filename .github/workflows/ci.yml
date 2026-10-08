@@ -7,6 +7,7 @@
 name: CI
 
 on:
+  workflow_call:
   push:
     branches:
       - main
@@ -17,7 +18,7 @@ permissions:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/heads/release/') }}
 
 env:
   GO_FLAGS: "-mod=vendor"

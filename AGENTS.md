@@ -175,6 +175,8 @@ Only install or configure DORI when the user explicitly requests it.
 
 - GitHub Actions on NV-managed runners (`linux-amd64-cpu4`).
 - Triggered on push to `main` and `pull-request/[0-9]+` branches (copy-pr-bot pattern).
+- The RC workflow reuses product CI through `workflow_call` on `release/*` pushes.
+- RC publishing runs after product CI passes for the same commit.
 - `pull_request` trigger is not used — the copy-pr-bot vets external PRs before CI runs.
 
 ## Security
