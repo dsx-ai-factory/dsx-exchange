@@ -1,7 +1,7 @@
 # Copyright 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-ARG BUILDER_IMG=golang:1.26.5-alpine
+ARG BUILDER_IMG=golang:1.26.9-alpine
 FROM ${BUILDER_IMG} AS build
 WORKDIR /src
 RUN apk add --no-cache ca-certificates
