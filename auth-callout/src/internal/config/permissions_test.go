@@ -34,7 +34,27 @@ func TestPermissionsManagerReloadsKubernetesConfigMapVolume(t *testing.T) {
 	require.Eventually(t, func() bool {
 		profile, ok := pm.GetNoAuthProfile()
 		return ok && profile.Account == "APP2"
-	}, 10*time.Second, 100*time.Millisecond)
+	}, 2*permissionsReloadPollingInterval, 100*time.Millisecond)
+}
+
+func TestPermissionsManagerReloadsRewrittenFile(t *testing.T) {
+	permissionsFile := filepath.Join(t.TempDir(), "permissions.json")
+	writeNoAuthPermissions(t, permissionsFile, "APP1")
+
+	pm, err := NewPermissionsManager(permissionsFile, testLogger())
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, pm.Close())
+	})
+
+	requireNoAuthAccount(t, pm, "APP1")
+
+	writeNoAuthPermissions(t, permissionsFile, "APP2")
+
+	require.Eventually(t, func() bool {
+		profile, ok := pm.GetNoAuthProfile()
+		return ok && profile.Account == "APP2"
+	}, 2*permissionsReloadPollingInterval, 100*time.Millisecond)
 }
 
 func testLogger() *otelzap.Logger {
