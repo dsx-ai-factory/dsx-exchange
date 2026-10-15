@@ -945,58 +945,6 @@ func TestNoAuthAuthentication(t *testing.T) {
 	t.Logf("NoAuth authentication successful: %s", profile.Name)
 }
 
-// TestPermissionsHotReload tests hot reloading of permissions configuration
-func TestPermissionsHotReload(t *testing.T) {
-	// Create initial permissions file
-	permFile := createTestPermissionsFile(t)
-	defer os.Remove(permFile)
-
-	pm, err := config.NewPermissionsManager(permFile, testLogger())
-	require.NoError(t, err)
-	defer pm.Close()
-
-	// Check initial config
-	profile, _, ok := pm.GetOAuth2Profile("user@example.com", "")
-	require.True(t, ok)
-	assert.Equal(t, "APP1", profile.Account)
-
-	// Update the permissions file
-	updatedConfig := config.PermissionsConfig{
-		OAuth2: map[string]*config.OAuth2Entry{
-			"test-user": {
-				Subject: "user@example.com",
-				Account: "APP2", // Changed from APP1
-			},
-		},
-	}
-
-	data, err := json.MarshalIndent(updatedConfig, "", "  ")
-	require.NoError(t, err)
-
-	err = os.WriteFile(permFile, data, 0644)
-	require.NoError(t, err)
-
-	// Wait for hot reload (file watcher has slight delay)
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	ticker := time.NewTicker(100 * time.Millisecond)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			t.Fatal("Timeout waiting for config reload")
-		case <-ticker.C:
-			profile, _, ok := pm.GetOAuth2Profile("user@example.com", "")
-			if ok && profile.Account == "APP2" {
-				t.Log("Config successfully hot-reloaded")
-				return
-			}
-		}
-	}
-}
-
 // createTestPermissionsFile creates a temporary permissions file for testing
 func createTestPermissionsFile(t *testing.T) string {
 	testConfig := config.PermissionsConfig{

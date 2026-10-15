@@ -105,8 +105,7 @@ made it stale.
 
 ## Go conventions
 
-- `auth-callout/` has its own `go.mod`, `.golangci.yml`, and vendored
-  dependencies (`-mod=vendor`).
+- `auth-callout/` has its own `go.mod` and `.golangci.yml`.
 - `dsx-agentgateway-bridge/` and local test tools are separate Go modules.
 - `local/mqtt-client/` and `local/mqttbs/` are separate Go modules.
 

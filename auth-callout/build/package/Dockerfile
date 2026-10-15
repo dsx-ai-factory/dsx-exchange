@@ -31,13 +31,17 @@ FROM ${BUILDER_IMG}:${BUILDER_TAG} AS builder
 # Set working directory
 WORKDIR /app
 
-# Copy source code (includes vendor/ directory)
+# Download modules before copying source so source-only changes skip this step
+COPY go.mod go.sum ./
+RUN --mount=type=cache,target=/go/pkg/mod go mod download
+
+# Copy source code
 COPY . .
 
 # Build the binary
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
-    CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags "-s -w" -mod=vendor -a -installsuffix cgo -o auth-callout ./src/cmd/auth_callout
+    CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags "-s -w" -mod=readonly -a -installsuffix cgo -o auth-callout ./src/cmd/auth_callout
 
 ################################################################################
 ### Stage: Final

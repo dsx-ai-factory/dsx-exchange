@@ -4,6 +4,8 @@
 package config
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -13,8 +15,6 @@ import (
 	"github.com/nats-io/jwt/v2"
 	"github.com/uptrace/opentelemetry-go-extra/otelzap"
 	"go.uber.org/zap"
-
-	nvconfig "gitlab-master.nvidia.com/ncp/vmaas/services/pkg/nv-config"
 )
 
 const permissionsReloadPollingInterval = 5 * time.Second
@@ -69,7 +69,8 @@ type PermissionsManager struct {
 	mtlsLookup    atomic.Pointer[map[string]UserProfile]          // identity -> profile
 	nkeyLookup    atomic.Pointer[map[string]UserProfile]          // public_key -> profile
 	noauthProfile atomic.Pointer[UserProfile]                     // optional no-auth profile
-	fileWatcher   nvconfig.FileWatcher
+	stopWatch     context.CancelFunc
+	watchDone     chan struct{}
 	logger        *otelzap.Logger
 }
 
@@ -87,44 +88,63 @@ type oauth2UserProfile struct {
 
 // NewPermissionsManager creates a new permissions manager
 func NewPermissionsManager(filePath string, logger *otelzap.Logger) (*PermissionsManager, error) {
-	pm := &PermissionsManager{
-		logger: logger,
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read config file: %w", err)
 	}
 
-	if err := pm.load(filePath); err != nil {
+	pm := &PermissionsManager{
+		watchDone: make(chan struct{}),
+		logger:    logger,
+	}
+	if err := pm.load(data); err != nil {
 		return nil, fmt.Errorf("failed to load initial config: %w", err)
 	}
 
-	fw, err := nvconfig.NewFileWatcher(nvconfig.WithPollingInterval(permissionsReloadPollingInterval))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create file watcher: %w", err)
-	}
-	pm.fileWatcher = fw
-
-	if err := fw.WatchFile(filePath, func(_ string) error {
-		pm.logger.Info("Config file changed, reloading...")
-		if err := pm.load(filePath); err != nil {
-			pm.logger.Error("Error reloading config", zap.Error(err))
-			return err
-		}
-		pm.logger.Info("Config reloaded successfully")
-		return nil
-	}); err != nil {
-		_ = fw.Stop()
-		return nil, fmt.Errorf("failed to watch config file: %w", err)
-	}
+	ctx, cancel := context.WithCancel(context.Background())
+	pm.stopWatch = cancel
+	go pm.watch(ctx, filePath, data)
 
 	logger.Info("Permissions manager initialized", zap.String("config_path", filePath))
 	return pm, nil
 }
 
-// load reads and parses the permissions configuration file
-func (pm *PermissionsManager) load(filePath string) error {
-	data, err := os.ReadFile(filePath)
-	if err != nil {
-		return fmt.Errorf("failed to read config file: %w", err)
-	}
+// watch reloads the permissions file whenever its contents change. Polling
+// follows the symlink swap Kubernetes uses to update a mounted ConfigMap.
+func (pm *PermissionsManager) watch(ctx context.Context, filePath string, loaded []byte) {
+	defer close(pm.watchDone)
 
+	ticker := time.NewTicker(permissionsReloadPollingInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+
+		data, err := os.ReadFile(filePath)
+		if err != nil {
+			pm.logger.Error("Error reading config file", zap.Error(err))
+			continue
+		}
+		if bytes.Equal(data, loaded) {
+			continue
+		}
+		loaded = data
+
+		pm.logger.Info("Config file changed, reloading...")
+		if err := pm.load(data); err != nil {
+			pm.logger.Error("Error reloading config", zap.Error(err))
+			continue
+		}
+		pm.logger.Info("Config reloaded successfully")
+	}
+}
+
+// load parses the permissions configuration and swaps in its lookups
+func (pm *PermissionsManager) load(data []byte) error {
 	var config PermissionsConfig
 	if err := json.Unmarshal(data, &config); err != nil {
 		return fmt.Errorf("failed to parse config JSON: %w", err)
@@ -262,7 +282,9 @@ func (pm *PermissionsManager) GetNoAuthProfile() (UserProfile, bool) {
 	return *profile, true
 }
 
-// Close stops the file watcher
+// Close stops watching the permissions file
 func (pm *PermissionsManager) Close() error {
-	return pm.fileWatcher.Stop()
+	pm.stopWatch()
+	<-pm.watchDone
+	return nil
 }
