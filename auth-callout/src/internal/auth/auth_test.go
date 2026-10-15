@@ -976,8 +976,8 @@ func TestPermissionsHotReload(t *testing.T) {
 	err = os.WriteFile(permFile, data, 0644)
 	require.NoError(t, err)
 
-	// Wait for hot reload (file watcher has slight delay)
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	// Wait for hot reload (the file is polled every 5 seconds)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	ticker := time.NewTicker(100 * time.Millisecond)

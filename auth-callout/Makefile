@@ -9,7 +9,6 @@
 BINARY_NAME=auth-callout
 DOCKER_IMAGE=auth-callout:latest
 DOCKERFILE_PATH=build/package/Dockerfile
-GOFLAGS=-mod=vendor
 TEST_FLAGS=-race -v -count 1
 GOCMD=go
 GO_LICENSES_VERSION=v1.6.0
@@ -17,7 +16,7 @@ ADDLICENSE_VERSION=v1.2.0
 GIT_HOOKS_DIR=$(shell git rev-parse --git-path hooks 2>/dev/null || echo .git/hooks)
 
 build: ## Build the binary
-	go build $(GOFLAGS) -o $(BINARY_NAME) src/cmd/auth_callout/main.go
+	go build -o $(BINARY_NAME) src/cmd/auth_callout/main.go
 
 clean: ## Clean build artifacts
 	rm -f $(BINARY_NAME)
@@ -29,7 +28,6 @@ clean-modcache: ## Clean module cache
 deps-update: ## Update dependencies
 	go get ./...
 	go mod tidy
-	go mod vendor
 
 #======================================================================================================================
 # DEVSPACE-specific targets
@@ -42,7 +40,7 @@ dev: ## Start with hot reloading
 	@air
 
 dev-build: ## Build the binary
-	go build $(GOFLAGS) -o $(BINARY_NAME) src/cmd/auth_callout/main.go
+	go build -o $(BINARY_NAME) src/cmd/auth_callout/main.go
 
 dev-lint: lint ## Run linter
 
@@ -53,7 +51,7 @@ dev-debug: ## Start with debugger (continues immediately)
 	@echo "  → Use VS Code 'Connect to DevSpace Debugger' configuration"
 	@echo "  → Use Ctrl+C to stop"
 	@mkdir -p tmp
-	go build $(GOFLAGS) -gcflags="all=-N -l" -o tmp/$(BINARY_NAME) ./src/cmd/auth_callout/main.go
+	go build -gcflags="all=-N -l" -o tmp/$(BINARY_NAME) ./src/cmd/auth_callout/main.go
 	@bash -c '$(DELVE_START_SCRIPT)'
 
 dev-debug-with-delve-logs: ## Start debugger with delve logging turned on (continues immediately)
@@ -63,7 +61,7 @@ dev-debug-with-delve-logs: ## Start debugger with delve logging turned on (conti
 	@echo "  → Use VS Code 'Connect to DevSpace Debugger' configuration"
 	@echo "  → Use Ctrl+C to stop"
 	@mkdir -p tmp
-	go build $(GOFLAGS) -gcflags="all=-N -l" -o tmp/$(BINARY_NAME) ./src/cmd/auth_callout/main.go
+	go build -gcflags="all=-N -l" -o tmp/$(BINARY_NAME) ./src/cmd/auth_callout/main.go
 	@bash -c '$(DELVE_START_WITH_LOGS_SCRIPT)'
 
 dev-debug-suspend: ## Start with debugger (waits for debugger attachment)
@@ -73,7 +71,7 @@ dev-debug-suspend: ## Start with debugger (waits for debugger attachment)
 	@echo "  → Use VS Code 'Connect to DevSpace Debugger' configuration"
 	@echo "  → Use Ctrl+C to stop"
 	@mkdir -p tmp
-	go build $(GOFLAGS) -gcflags="all=-N -l" -o tmp/$(BINARY_NAME) ./src/cmd/auth_callout/main.go
+	go build -gcflags="all=-N -l" -o tmp/$(BINARY_NAME) ./src/cmd/auth_callout/main.go
 	@bash -c '$(DELVE_SUSPEND_SCRIPT)'
 
 dev-debug-suspend-with-delve-logs: ## Start debugger with delve logging turned on (continues immediately)
@@ -83,7 +81,7 @@ dev-debug-suspend-with-delve-logs: ## Start debugger with delve logging turned o
 	@echo "  → Use VS Code 'Connect to DevSpace Debugger' configuration"
 	@echo "  → Use Ctrl+C to stop"
 	@mkdir -p tmp
-	go build $(GOFLAGS) -gcflags="all=-N -l" -o tmp/$(BINARY_NAME) ./src/cmd/auth_callout/main.go
+	go build -gcflags="all=-N -l" -o tmp/$(BINARY_NAME) ./src/cmd/auth_callout/main.go
 	@bash -c '$(DELVE_SUSPEND_WITH_LOGS_SCRIPT)'
 
 

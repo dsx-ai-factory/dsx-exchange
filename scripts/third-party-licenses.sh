@@ -41,23 +41,17 @@ else
     find . \
       -path './.cache' -prune -o \
       -path './.git' -prune -o \
-      -path '*/vendor' -prune -o \
       -name go.mod -print | sort
   )
 fi
 
 for module_dir in "${module_dirs[@]}"; do
   module_path="$(cd "${module_dir}" && go list -m)"
-  if [[ -d "${module_dir}/vendor" ]]; then
-    go_flags="-mod=vendor"
-  else
-    go_flags="-mod=readonly"
-  fi
 
   if ! (
     cd "${module_dir}"
     module_goroot="$(go env GOROOT)"
-    GOROOT="${module_goroot}" GOOS=linux GOARCH=amd64 GOFLAGS="${go_flags}" \
+    GOROOT="${module_goroot}" GOOS=linux GOARCH=amd64 GOFLAGS=-mod=readonly \
       go-licenses report ./...
   ) 2>>"${warnings}" |
     awk -F, -v module="${module_path}" '$1 != module && index($1, module "/") != 1' >>"${raw}"; then
@@ -66,30 +60,7 @@ for module_dir in "${module_dirs[@]}"; do
   fi
 done
 
-while IFS=, read -r package_name license_url license_name; do
-  if [[ "${license_url}" == "Unknown" && "${license_name}" == "Unknown" ]]; then
-    for module_dir in "${module_dirs[@]}"; do
-      package_dir="${module_dir}/vendor/${package_name}"
-      [[ -d "${package_dir}" ]] || continue
-      spdx="$(
-        find "${package_dir}" -type f -print0 |
-          xargs -0 awk '
-            /SPDX-License-Identifier:/ {
-              sub(/^.*SPDX-License-Identifier:[[:space:]]*/, "")
-              gsub(/^[[:space:]]+|[[:space:]]+$/, "")
-              print
-            }
-          ' |
-          sort -u
-      )"
-      if [[ -n "${spdx}" && "$(printf '%s\n' "${spdx}" | wc -l | tr -d ' ')" == "1" ]]; then
-        license_name="${spdx}"
-        break
-      fi
-    done
-  fi
-  printf '%s,%s,%s\n' "${package_name}" "${license_url}" "${license_name}"
-done <"${raw}" >"${normalized}"
+cp "${raw}" "${normalized}"
 
 while IFS= read -r override; do
   package_name="${override%%,*}"
