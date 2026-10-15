@@ -30,7 +30,7 @@ profiles:
   - op: add
     path: /build/artifacts/0/docker/buildArgs
     value:
-      BUILDER_IMG: '{{.SKAFFOLD_BUILD_MIRROR_REGISTRY}}/docker.io/library/golang:1.26.5-alpine'
+      BUILDER_IMG: '{{.SKAFFOLD_BUILD_MIRROR_REGISTRY}}/docker.io/library/golang:1.26.9-alpine'
   - op: add
     path: /build/artifacts/1/docker/buildArgs
     value:
