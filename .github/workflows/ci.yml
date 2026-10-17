@@ -49,7 +49,7 @@ jobs:
           year: "2026"
           paths: "."
           ignore: ".git/**,**/*.md,**/*.png,**/*.sum,**/Chart.lock,**/tmp/**,**/vendor/**,auth-callout/vault-agent/templates/**,docs/schema-viewer/**,local/infra/local-registry/zot-config.json,LICENSE,THIRD_PARTY_LICENSES*"
-          go-version: "1.26.5"
+          go-version: "1.26.9"
 
   fern-check:
     name: Fern Check
