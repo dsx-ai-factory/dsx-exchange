@@ -90,7 +90,7 @@ See [local/mqttbs/README.md](local/mqttbs/README.md) for smoke-sized options.
 
 ### Versioning
 
-DSX Exchange follows [Semantic Versioning](https://semver.org/) (`vX.Y.Z`), automated via semantic-release. A new version is published automatically when a semantic-release compliant commit is merged to `main`.
+DSX Exchange follows [Semantic Versioning](https://semver.org/) (`vX.Y.Z`). By default, semantic-release publishes a new version when a release-worthy commit is merged to `main`. Enabling RC promotion replaces this automatic publishing path.
 
 | Commit prefix | Version bump | When to use |
 |---------------|--------------|-------------|
@@ -100,7 +100,7 @@ DSX Exchange follows [Semantic Versioning](https://semver.org/) (`vX.Y.Z`), auto
 
 ### Release Candidates
 
-1. Send feature PRs to `main`, which keeps its existing stable-release workflow.
+1. Send feature PRs to `main`.
 2. For QA, create a protected `release/X.Y.Z` branch from a tested `main` commit.
 3. Send release fixes to that branch, then bring the fixes back to `main` through PRs.
 
@@ -112,6 +112,22 @@ The shared workflow publishes images and charts to NGC with the same RC version.
 Chart image repositories are unchanged. Use the [RC image overrides](docs/release-candidates.md) to deploy the matching images.
 
 For setup, version selection, or migrating an existing release branch, refer to the [RC guide](https://github.com/dsx-ai-factory/dsx-github-actions/blob/main/docs/release-candidate-publishing.md).
+
+### Promote an RC
+
+Promotion is disabled by default. Complete the
+[release setup](https://github.com/dsx-ai-factory/dsx-github-actions/blob/main/docs/promote-rc.md)
+before enabling `.github/rc-promotion.json` and setting `DSX_RELEASE_MODE=rc-promotion`.
+That mode stops automatic main releases. Until then, the existing release workflow remains active.
+
+1. Have QA validate a published RC with a successful manifest capture.
+2. Open **Actions > Promote RC > Run workflow**. Select `main` and enter `X.Y.Z-rc.N`.
+3. Confirm the RC version and source commit with the configured release reviewers.
+4. After approval, the workflow publishes `X.Y.Z` using the tested image digests.
+
+The [promotion workflow](.github/workflows/promote-rc.yml) calls the shared publisher.
+Older RCs without a promotion manifest cannot be selected.
+The [promotion preparation and deployment requirements](docs/release-candidates.md#promote-and-deploy-an-rc) cover existing release branches, image overrides, and bundled dependencies.
 
 ### Roadmap
 

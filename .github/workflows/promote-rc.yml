@@ -1,0 +1,29 @@
+# Copyright 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+name: Promote RC
+
+on:
+  workflow_dispatch:
+    inputs:
+      rc_version:
+        description: QA-approved RC version (X.Y.Z-rc.N)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  promote:
+    if: >-
+      github.repository == 'dsx-ai-factory/dsx-exchange' &&
+      github.ref == 'refs/heads/main' &&
+      vars.DSX_RELEASE_MODE == 'rc-promotion'
+    permissions:
+      contents: read
+      actions: read
+      deployments: read
+    uses: dsx-ai-factory/dsx-github-actions/.github/workflows/promote-rc.yml@c5609021216442ef4f398111512834632c30d41d
+    with:
+      rc_version: ${{ inputs.rc_version }}
