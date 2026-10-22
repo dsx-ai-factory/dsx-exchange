@@ -183,8 +183,31 @@ The producer validates each rendered message against the canonical BMS AsyncAPI
 schema before it publishes anything. The sample scenario uses
 `{{timestamp_ms}}` for readings that need a fresh event timestamp on each pass.
 
-See `examples/dsx_exemplar.csv` for the raw data sample. You can provide
+See `examples/dsx_exemplar.csv` for the sample scenario. You can provide
 your own sample or edit the sample for custom data.
+
+The sample is one 15-minute pass. It repeats a recorded 99-second capture and
+adds a cooling excursion on CDU `C-F00-CDU-05`, so consumers have a cooling
+incident to detect. At 5:00, the following changes start:
+
+- The CDU primary (facility) water flow falls by 55%, and the CDU primary
+  valves open fully.
+- The CDU secondary supply temperature rises from 31.4 C to 46.4 C over
+  2 minutes. It holds for 5 minutes and recovers over 3 minutes, at the end of
+  the pass.
+- Racks E02 to E06 get warmer supply and return liquid. Each rack draws up to
+  about 9.4 kW less power because its GPUs throttle. The E05 taps and the row E
+  busways show the matching power drop. Rack E01 does not change.
+
+`scripts/generate_exemplar_csv.py` generates the sample from the recorded
+capture, which is the version of `examples/dsx_exemplar.csv` at commit
+`28c66bf`. The script uses only the Python standard library. To regenerate the
+sample, run these commands from `local/mqtt-client`:
+
+```bash
+git show 28c66bf:local/mqtt-client/examples/dsx_exemplar.csv > /tmp/bms-capture.csv
+python3 scripts/generate_exemplar_csv.py /tmp/bms-capture.csv
+```
 
 From the repo root, run `make dummy-bms` after the local environment is
 deployed. For direct runs, pass the broker, CSV, and schema paths explicitly.

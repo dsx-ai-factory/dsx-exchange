@@ -224,8 +224,8 @@ func TestLoadScenarioAcceptsGeneratedExemplarCSV(t *testing.T) {
 		t.Fatalf("LoadScenario() error = %v", err)
 	}
 
-	if len(scenario.Entries) != 4711 {
-		t.Fatalf("len(Entries) = %d, want 4711", len(scenario.Entries))
+	if len(scenario.Entries) != 41340 {
+		t.Fatalf("len(Entries) = %d, want 41340", len(scenario.Entries))
 	}
 	placeholderCount := 0
 	for _, entry := range scenario.Entries {
@@ -233,12 +233,79 @@ func TestLoadScenarioAcceptsGeneratedExemplarCSV(t *testing.T) {
 			placeholderCount++
 		}
 	}
-	if placeholderCount != 4545 {
-		t.Fatalf("timestamp placeholder count = %d, want 4545", placeholderCount)
+	if placeholderCount != 41174 {
+		t.Fatalf("timestamp placeholder count = %d, want 41174", placeholderCount)
 	}
-	wantLastOffset := time.Minute + 39*time.Second + 367544100*time.Nanosecond
+	wantLastOffset := 15 * time.Minute
 	if got := scenario.Entries[len(scenario.Entries)-1].Offset; got != wantLastOffset {
 		t.Fatalf("last offset = %s, want %s", got, wantLastOffset)
+	}
+}
+
+func TestExemplarCSVCarriesTheCDUCoolingExcursion(t *testing.T) {
+	scenario, err := LoadScenario("../../examples/dsx_exemplar.csv", testBMSSchema(t))
+	if err != nil {
+		t.Fatalf("LoadScenario() error = %v", err)
+	}
+
+	const prefix = "BMS/v1/PUB/Value/"
+	cduSupply := prefix + "CDU/LiquidTemperature/nvidia/titan/pod1C/C-F00-CDU-05/secondary/supply/temperature/feedback/value"
+	e02Power := prefix + "Rack/RackPower/nvidia/titan/pod1C/rowE/rack02/info/power/power/value"
+	e01Power := prefix + "Rack/RackPower/nvidia/titan/pod1C/rowE/rack01/info/power/power/value"
+	windows := []struct {
+		name     string
+		from, to time.Duration
+	}{
+		{"before", 0, 5 * time.Minute},
+		{"hold", 7 * time.Minute, 12 * time.Minute},
+		{"after", 14*time.Minute + 50*time.Second, 15*time.Minute + time.Second},
+	}
+	readings := map[string]map[string][]float64{}
+	for _, entry := range scenario.Entries {
+		if entry.Topic != cduSupply && entry.Topic != e02Power && entry.Topic != e01Power {
+			continue
+		}
+		payload, err := entry.RenderPayload(time.UnixMilli(0))
+		if err != nil {
+			t.Fatalf("RenderPayload() error = %v", err)
+		}
+		var reading struct {
+			Value float64 `json:"value"`
+		}
+		if err := json.Unmarshal(payload, &reading); err != nil {
+			t.Fatalf("json.Unmarshal() error = %v", err)
+		}
+		for _, w := range windows {
+			if entry.Offset >= w.from && entry.Offset < w.to {
+				if readings[entry.Topic] == nil {
+					readings[entry.Topic] = map[string][]float64{}
+				}
+				readings[entry.Topic][w.name] = append(readings[entry.Topic][w.name], reading.Value)
+			}
+		}
+	}
+
+	checks := []struct {
+		topic, window string
+		min, max      float64
+	}{
+		{cduSupply, "before", 31, 32},
+		{cduSupply, "hold", 46, 47},
+		{cduSupply, "after", 31, 32.5},
+		{e02Power, "before", 35, 35.5},
+		{e02Power, "hold", 25, 26.5},
+		{e01Power, "hold", 0.09, 0.1},
+	}
+	for _, c := range checks {
+		values := readings[c.topic][c.window]
+		if len(values) == 0 {
+			t.Fatalf("%s has no readings %s the excursion", c.topic, c.window)
+		}
+		for _, v := range values {
+			if v < c.min || v > c.max {
+				t.Fatalf("%s %s the excursion = %v, want %v-%v", c.topic, c.window, v, c.min, c.max)
+			}
+		}
 	}
 }
 
