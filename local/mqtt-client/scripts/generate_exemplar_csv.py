@@ -196,7 +196,8 @@ def main() -> None:
     writer = csv.writer(buf, lineterminator="\n")
     writer.writerow(header)
     writer.writerows(generate(rows))
-    args.output.write_text(buf.getvalue(), encoding="utf-8", newline="")
+    with args.output.open("w", encoding="utf-8", newline="") as output:
+        output.write(buf.getvalue())
 
 
 if __name__ == "__main__":
