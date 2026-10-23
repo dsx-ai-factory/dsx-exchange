@@ -31,7 +31,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: dsx-ai-factory/dsx-github-actions/.github/actions/commitlint@0969f64c3efa9e757135cbf457ea13cde4c3fa38 # v1.17.0
+      - uses: dsx-ai-factory/dsx-github-actions/.github/actions/commitlint@911d86017e6e0715cef26cb3105d66c2fcd985fb
         with:
           # Copy PRs run as push events, so GITHUB_BASE_REF is unavailable.
           from: ${{ startsWith(github.ref, 'refs/heads/pull-request/') && 'origin/main' || 'HEAD~1' }}
@@ -41,7 +41,7 @@ jobs:
     runs-on: linux-amd64-cpu4
     steps:
       - uses: actions/checkout@v4
-      - uses: dsx-ai-factory/dsx-github-actions/.github/actions/license-headers@0969f64c3efa9e757135cbf457ea13cde4c3fa38 # v1.17.0
+      - uses: dsx-ai-factory/dsx-github-actions/.github/actions/license-headers@911d86017e6e0715cef26cb3105d66c2fcd985fb
         with:
           license: apache
           copyright-holder: "NVIDIA CORPORATION & AFFILIATES. All rights reserved."
@@ -66,7 +66,7 @@ jobs:
     runs-on: linux-amd64-cpu4
     steps:
       - uses: actions/checkout@v4
-      - uses: dsx-ai-factory/dsx-github-actions/.github/actions/go-lint@0969f64c3efa9e757135cbf457ea13cde4c3fa38 # v1.17.0
+      - uses: dsx-ai-factory/dsx-github-actions/.github/actions/go-lint@911d86017e6e0715cef26cb3105d66c2fcd985fb
         with:
           working-directory: auth-callout
 
@@ -75,7 +75,7 @@ jobs:
     runs-on: linux-amd64-cpu4
     steps:
       - uses: actions/checkout@v4
-      - uses: dsx-ai-factory/dsx-github-actions/.github/actions/go-test@0969f64c3efa9e757135cbf457ea13cde4c3fa38 # v1.17.0
+      - uses: dsx-ai-factory/dsx-github-actions/.github/actions/go-test@911d86017e6e0715cef26cb3105d66c2fcd985fb
         with:
           test-flags: "-v -count=1 -timeout=10m"
           working-directory: auth-callout
@@ -114,7 +114,7 @@ jobs:
     runs-on: linux-amd64-cpu4
     steps:
       - uses: actions/checkout@v4
-      - uses: dsx-ai-factory/dsx-github-actions/.github/actions/go-lint@0969f64c3efa9e757135cbf457ea13cde4c3fa38 # v1.17.0
+      - uses: dsx-ai-factory/dsx-github-actions/.github/actions/go-lint@911d86017e6e0715cef26cb3105d66c2fcd985fb
         with:
           working-directory: dsx-agentgateway-bridge
 
@@ -123,7 +123,7 @@ jobs:
     runs-on: linux-amd64-cpu4
     steps:
       - uses: actions/checkout@v4
-      - uses: dsx-ai-factory/dsx-github-actions/.github/actions/go-test@0969f64c3efa9e757135cbf457ea13cde4c3fa38 # v1.17.0
+      - uses: dsx-ai-factory/dsx-github-actions/.github/actions/go-test@911d86017e6e0715cef26cb3105d66c2fcd985fb
         with:
           test-flags: "-v -count=1 -timeout=10m"
           working-directory: dsx-agentgateway-bridge
@@ -152,7 +152,7 @@ jobs:
     runs-on: linux-amd64-cpu4
     steps:
       - uses: actions/checkout@v4
-      - uses: dsx-ai-factory/dsx-github-actions/.github/actions/docker-build@0969f64c3efa9e757135cbf457ea13cde4c3fa38 # v1.17.0
+      - uses: dsx-ai-factory/dsx-github-actions/.github/actions/docker-build@911d86017e6e0715cef26cb3105d66c2fcd985fb
         with:
           image: dsx-exchange-auth-callout
           tags: ci-validation
@@ -166,7 +166,7 @@ jobs:
     runs-on: linux-amd64-cpu4
     steps:
       - uses: actions/checkout@v4
-      - uses: dsx-ai-factory/dsx-github-actions/.github/actions/docker-build@0969f64c3efa9e757135cbf457ea13cde4c3fa38 # v1.17.0
+      - uses: dsx-ai-factory/dsx-github-actions/.github/actions/docker-build@911d86017e6e0715cef26cb3105d66c2fcd985fb
         with:
           image: dsx-agentgateway-bridge
           tags: ci-validation
@@ -190,7 +190,7 @@ jobs:
         with:
           go-version-file: auth-callout/go.mod
           cache: false
-      - uses: dsx-ai-factory/dsx-github-actions/.github/actions/codeql-scan@0969f64c3efa9e757135cbf457ea13cde4c3fa38 # v1.17.0
+      - uses: dsx-ai-factory/dsx-github-actions/.github/actions/codeql-scan@911d86017e6e0715cef26cb3105d66c2fcd985fb
         with:
           languages: go
           build-mode: manual
@@ -210,7 +210,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: dsx-ai-factory/dsx-github-actions/.github/actions/trufflehog-scan@0969f64c3efa9e757135cbf457ea13cde4c3fa38 # v1.17.0
+      - uses: dsx-ai-factory/dsx-github-actions/.github/actions/trufflehog-scan@911d86017e6e0715cef26cb3105d66c2fcd985fb
         with:
           post-pr-comment: "true"
           fail-on-findings: "true"
@@ -221,7 +221,7 @@ jobs:
     runs-on: linux-amd64-cpu4
     steps:
       - uses: actions/checkout@v4
-      - uses: dsx-ai-factory/dsx-github-actions/.github/actions/docker-build@0969f64c3efa9e757135cbf457ea13cde4c3fa38 # v1.17.0
+      - uses: dsx-ai-factory/dsx-github-actions/.github/actions/docker-build@911d86017e6e0715cef26cb3105d66c2fcd985fb
         with:
           image: dsx-exchange-auth-callout
           tags: scan-validation
@@ -229,7 +229,7 @@ jobs:
           dockerfile: auth-callout/build/package/Dockerfile
           platforms: linux/amd64
           push: "false"
-      - uses: dsx-ai-factory/dsx-github-actions/.github/actions/security-container-scan@0969f64c3efa9e757135cbf457ea13cde4c3fa38 # v1.17.0
+      - uses: dsx-ai-factory/dsx-github-actions/.github/actions/security-container-scan@911d86017e6e0715cef26cb3105d66c2fcd985fb
         with:
           image: dsx-exchange-auth-callout:scan-validation
 
@@ -238,7 +238,7 @@ jobs:
     runs-on: linux-amd64-cpu4
     steps:
       - uses: actions/checkout@v4
-      - uses: dsx-ai-factory/dsx-github-actions/.github/actions/helm-validate@0969f64c3efa9e757135cbf457ea13cde4c3fa38 # v1.17.0
+      - uses: dsx-ai-factory/dsx-github-actions/.github/actions/helm-validate@911d86017e6e0715cef26cb3105d66c2fcd985fb
         with:
           chart-path: auth-callout/deploy
           helm-version: v4.2.2
@@ -259,7 +259,7 @@ jobs:
           path: .cache
           key: local-dependencies-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('local/scripts/prepare-dependencies.sh', 'local/scripts/cache-*.sh') }}
       - run: mise exec -- bash local/scripts/prepare-dependencies.sh
-      - uses: dsx-ai-factory/dsx-github-actions/.github/actions/helm-validate@0969f64c3efa9e757135cbf457ea13cde4c3fa38 # v1.17.0
+      - uses: dsx-ai-factory/dsx-github-actions/.github/actions/helm-validate@911d86017e6e0715cef26cb3105d66c2fcd985fb
         with:
           chart-path: deploy/nats-event-bus
           helm-version: v4.2.2
@@ -315,7 +315,7 @@ jobs:
       CI_STATUS: ${{ contains(needs.*.result, 'failure') && 'FAILED' || 'PASSED' }}
       RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
-      - uses: dsx-ai-factory/dsx-github-actions/.github/actions/slack-notify@0969f64c3efa9e757135cbf457ea13cde4c3fa38 # v1.17.0
+      - uses: dsx-ai-factory/dsx-github-actions/.github/actions/slack-notify@911d86017e6e0715cef26cb3105d66c2fcd985fb
         with:
           slack-bot-token: ${{ secrets.SLACK_BOT_TOKEN }}
           channel-id: C09VC8R4E92
