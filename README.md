@@ -1,5 +1,7 @@
 # DSX Exchange
 
+[![CI](https://github.com/dsx-ai-factory/dsx-exchange/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/dsx-ai-factory/dsx-exchange/actions/workflows/ci.yml)
+
 DSX Exchange is a monorepo for the DSX Event Bus and Agentgateway, including
 schemas, services, Helm charts, and local evaluation tooling.
 
