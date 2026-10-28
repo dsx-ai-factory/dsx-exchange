@@ -118,6 +118,30 @@ func TestAuthorizationServiceStartsBeforeInitialNATSConnect(t *testing.T) {
 	}
 }
 
+func TestValidateOAuth2Config(t *testing.T) {
+	tests := []struct {
+		name             string
+		jwksURL          string
+		hasOAuth2Entries bool
+		wantErr          bool
+	}{
+		{"oauth2 clients without jwks url", "", true, true},
+		{"oauth2 clients with jwks url", "https://idp.example.com/jwks.json", true, false},
+		{"jwks url without oauth2 clients", "https://idp.example.com/jwks.json", false, false},
+		{"neither configured", "", false, false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := validateOAuth2Config(test.jwksURL, test.hasOAuth2Entries)
+			if test.wantErr {
+				require.ErrorContains(t, err, "jwks.url")
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
+}
+
 func TestLivezHandlerDoesNotRequireNATSConnection(t *testing.T) {
 	response := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodGet, "/livez", nil)
