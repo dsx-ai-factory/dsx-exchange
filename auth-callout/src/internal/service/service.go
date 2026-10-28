@@ -136,6 +136,10 @@ func New(config ServiceConfig, logger *otelzap.Logger) *Service {
 	// Build list of authenticators in priority order
 	var authenticators []auth.Authenticator
 
+	if err := validateOAuth2Config(config.JWKS.URL, pm.HasOAuth2Entries()); err != nil {
+		logger.Fatal("invalid OAuth2 configuration", zap.Error(err))
+	}
+
 	// OAuth2 authenticator
 	if config.JWKS.URL != "" {
 		oauth2Auth, err := auth.NewOAuth2Authenticator(config.JWKS.URL, config.JWKS.Issuer, config.JWKS.Audience, config.JWKS.SigningAlgorithms, config.JWKS.AllowInsecure, pm, logger, serviceName)
@@ -195,6 +199,16 @@ func New(config ServiceConfig, logger *otelzap.Logger) *Service {
 		issuerPubKey:   issuerPubKey,
 		curveKeyPair:   curveKeyPair,
 	}
+}
+
+// validateOAuth2Config rejects OAuth2 client permissions that no authenticator can serve.
+// The OAuth2 authenticator is only registered when a JWKS URL is set, so without one
+// every OAuth2 client would be rejected with no error at startup.
+func validateOAuth2Config(jwksURL string, hasOAuth2Entries bool) error {
+	if hasOAuth2Entries && jwksURL == "" {
+		return errors.New("permissions define OAuth2 clients but jwks.url is not set")
+	}
+	return nil
 }
 
 func newHTTPServer(addr string, handler http.Handler, logger *zap.Logger) *http.Server {
