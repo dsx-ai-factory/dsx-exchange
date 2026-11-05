@@ -55,7 +55,7 @@ jobs:
     runs-on: linux-amd64-cpu4
     steps:
       - uses: actions/checkout@v4
-      - uses: dsx-ai-factory/dsx-github-actions/.github/actions/fern-docs@81eb7c69680d2b3eca9142e73fcd2fe311949cf5
+      - uses: dsx-ai-factory/dsx-github-actions/.github/actions/fern-docs@54d113e4894393dbf0b26aacc1c65ca4b54ee7a6
         with:
           fern-docs-path: .github/fern-docs.yml
           fern-organization: nvidia
