@@ -23,7 +23,7 @@ permissions:
 jobs:
   publish:
     name: Publish
-    uses: dsx-ai-factory/dsx-github-actions/.github/workflows/publish-fern-docs.yml@08b9fdd808d9d508727d2e7b38f629bd4849b5c1
+    uses: dsx-ai-factory/dsx-github-actions/.github/workflows/publish-fern-docs.yml@5a04d9e41ad79c4ff66ca27611c2ba0cd27ba123
     with:
       runner: linux-amd64-cpu4
       fern_cli_version: '5.65.2'
