@@ -22,7 +22,7 @@ concurrency:
 
 jobs:
   collect:
-    uses: dsx-ai-factory/dsx-github-actions/.github/workflows/fern-docs-preview-build.yml@5a04d9e41ad79c4ff66ca27611c2ba0cd27ba123
+    uses: dsx-ai-factory/dsx-github-actions/.github/workflows/fern-docs-preview-build.yml@3193ddf344c5ff4854863061ac95685728bbcfdd
     with:
       runner: linux-amd64-cpu4
       docs_directory: docs
