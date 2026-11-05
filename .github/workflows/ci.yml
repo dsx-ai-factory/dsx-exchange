@@ -55,11 +55,11 @@ jobs:
     runs-on: linux-amd64-cpu4
     steps:
       - uses: actions/checkout@v4
-      - uses: ./.github/actions/setup-mise
+      - uses: dsx-ai-factory/dsx-github-actions/.github/actions/fern-docs@81eb7c69680d2b3eca9142e73fcd2fe311949cf5
         with:
-          cache-key: fern
-          install-args: node npm:fern-api
-      - run: fern check
+          fern-docs-path: .github/fern-docs.yml
+          fern-organization: nvidia
+          fern-cli-version: '5.65.2'
 
   go-lint:
     name: Go Lint (auth-callout)
