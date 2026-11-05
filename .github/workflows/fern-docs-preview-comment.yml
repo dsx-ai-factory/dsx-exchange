@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   preview:
-    uses: dsx-ai-factory/dsx-github-actions/.github/workflows/fern-docs-preview-comment.yml@ad7d944201c5761ee0e848c61b7c8d8b65a67957
+    uses: dsx-ai-factory/dsx-github-actions/.github/workflows/fern-docs-preview-comment.yml@08b9fdd808d9d508727d2e7b38f629bd4849b5c1
     with:
       runner: linux-amd64-cpu4
       fern_cli_version: '5.65.2'
