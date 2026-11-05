@@ -44,7 +44,7 @@ Apply these rules to documentation, examples, headings, UI text, and release not
 - Do not rewrite literal code, identifiers, commands, URLs, or quoted terminal and API output to satisfy prose rules.
 - Apply rules to improve clarity. Do not make mechanical changes that reduce technical accuracy or readability.
 - Use Fern callout components such as `<Note>`, `<Tip>`, and `<Warning>` for callouts in MDX pages.
-- Do not add frontmatter or a body title only because another Fern repository uses it. Match the established structure of the target page and `fern/docs.yml`.
+- Do not add frontmatter or a body title only because another Fern repository uses it. Match the established structure of the target page and `.github/fern-docs.yml`.
 
 ## Use DORI for Complete NVIDIA Documentation Tasks
 
@@ -64,11 +64,11 @@ If the verified Skill Library is unavailable, inaccessible, or fails, skip DORI.
 - Map code changes to existing pages before proposing a new page.
 - Determine which DSX Exchange product owns the behavior and which other product pages need a cross-reference.
 - Use source code, tests, Helm charts, example values, scripts, or accepted product scope as evidence for each technical claim.
-- Check `fern/docs.yml` before adding, moving, renaming, or removing a page. Preserve published routes when changing navigation.
+- Check `.github/fern-docs.yml` before adding, moving, renaming, or removing a page. Preserve published routes when changing navigation.
 
 ## DSX Exchange Documentation Patterns
 
-- Keep hand-authored user documentation in `docs/` and site navigation in `fern/docs.yml`.
+- Keep hand-authored user documentation in `docs/` and site navigation in `.github/fern-docs.yml`.
 - Give each concept one canonical explanation. Link to it from related product pages instead of duplicating detailed content.
 - Use links that match the existing page convention and verify them with the offline link checker.
 - Treat `schemas/asyncapi/` as the source of truth for generated schema pages. Regenerate `docs/schema-*.mdx` with `python3 scripts/generate_asyncapi_docs.py` instead of making changes that will be overwritten.
@@ -79,14 +79,14 @@ If the verified Skill Library is unavailable, inaccessible, or fails, skip DORI.
 
 ## Verification
 
-Run the documentation checks that apply to the change from the repository root:
+The shared Fern CI workflow prepares the site configuration and runs MDX,
+Fern configuration, and offline link checks. Check its result on the pull request.
+
+Run local prose and offline link checks from the repository root:
 
 ```bash
-./tools/check-docs-mdx
-fern check
-fern docs md check
 rumdl check docs
 lychee --offline --no-progress 'docs/**/*.md' 'docs/**/*.mdx'
 ```
 
-The offline link check requires `lychee`. If it is unavailable, report that the check was not run instead of substituting an online checker. When generated schema pages change, regenerate them from the affected AsyncAPI specification before running these checks. Do not report a check as passed unless you ran it successfully.
+When generated schema pages change, regenerate them from the affected AsyncAPI specification before checking them. Do not report a check as passed unless you ran it successfully.

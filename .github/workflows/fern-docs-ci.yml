@@ -10,8 +10,8 @@ on:
       - "pull-request/[0-9]+"
     paths:
       - 'docs/**'
-      - 'fern/**'
-      - 'tools/check-docs-mdx'
+      - '.github/fern-docs.yml'
+      - '.github/versions/**'
       - '.github/workflows/fern-docs-ci.yml'
   workflow_dispatch: {}
 
@@ -25,8 +25,10 @@ concurrency:
 jobs:
   fern-check:
     name: Fern Check
-    uses: dsx-ai-factory/dsx-github-actions/.github/workflows/fern-docs-ci.yml@3193ddf344c5ff4854863061ac95685728bbcfdd
+    uses: dsx-ai-factory/dsx-github-actions/.github/workflows/fern-docs-ci.yml@81eb7c69680d2b3eca9142e73fcd2fe311949cf5
     with:
+      fern_docs_path: .github/fern-docs.yml
+      fern_organization: nvidia
       runner: linux-amd64-cpu4
       fern_cli_version: '5.65.2'
       docs_directory: docs
