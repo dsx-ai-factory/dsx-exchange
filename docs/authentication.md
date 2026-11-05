@@ -38,7 +38,7 @@ sequenceDiagram
 
 Clients connect with a username of `oauthtoken` and an access token as the password. The auth-callout validates the token against the OIDC provider's JWKS endpoint and matches the token's `azp` (authorized party) or `subject` claim to a permissions entry.
 
-Configure the JWKS endpoint and issuer in the Helm values for **every cluster** (CSC and each CPC). Without these values, that cluster's auth-callout cannot validate JWTs and silently rejects all OAuth2 connections:
+Configure the JWKS endpoint and issuer in the Helm values for **every cluster** (CSC and each CPC). The auth-callout cannot validate JWTs without them, and it exits at startup when the permissions define OAuth2 clients and `jwks.url` is empty:
 
 ```yaml
 auth-callout:
