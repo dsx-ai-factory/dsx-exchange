@@ -89,4 +89,6 @@ rumdl check docs
 lychee --offline --no-progress 'docs/**/*.md' 'docs/**/*.mdx'
 ```
 
+If `rumdl` or `lychee` is unavailable locally, report that check as not run. Do not substitute an online checker for the offline link check.
+
 When generated schema pages change, regenerate them from the affected AsyncAPI specification before checking them. Do not report a check as passed unless you ran it successfully.
