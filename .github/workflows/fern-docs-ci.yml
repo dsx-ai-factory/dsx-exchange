@@ -10,9 +10,10 @@ on:
       - "pull-request/[0-9]+"
     paths:
       - 'docs/**'
-      - 'fern/**'
-      - 'tools/check-docs-mdx'
+      - '.github/fern-docs.yml'
+      - '.github/versions/**'
       - '.github/workflows/fern-docs-ci.yml'
+  workflow_dispatch: {}
 
 permissions:
   contents: read
@@ -24,28 +25,10 @@ concurrency:
 jobs:
   fern-check:
     name: Fern Check
-    runs-on: linux-amd64-cpu4
-    timeout-minutes: 10
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install Fern CLI
-        run: npm install -g fern-api
-
-      - name: Check MDX safety
-        run: ./tools/check-docs-mdx
-
-      - name: Fern check
-        run: fern check
-
-      - name: Check links
-        uses: lycheeverse/lychee-action@v2
-        with:
-          args: --offline --no-progress 'docs/**/*.md' 'docs/**/*.mdx'
-          fail: true
+    uses: dsx-ai-factory/dsx-github-actions/.github/workflows/fern-docs-ci.yml@a86675cddd27de0cc3182d2a33db75a26c20bb90
+    with:
+      fern_docs_path: .github/fern-docs.yml
+      fern_organization: nvidia
+      runner: linux-amd64-cpu4
+      fern_cli_version: '5.65.2'
+      docs_directory: docs
