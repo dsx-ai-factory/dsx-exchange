@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   preview:
-    uses: dsx-ai-factory/dsx-github-actions/.github/workflows/fern-docs-preview-comment.yml@ff256deef9bbbfb595f33e6e6e914d341b27cf2d
+    uses: dsx-ai-factory/dsx-github-actions/.github/workflows/fern-docs-preview-comment.yml@a86675cddd27de0cc3182d2a33db75a26c20bb90
     with:
       fern_docs_path: .github/fern-docs.yml
       fern_organization: nvidia
