@@ -53,3 +53,14 @@ helm template agent-gateway ./dsx-agent-gateway-X.Y.Z-rc.N.tgz \
 ```
 
 Check that the auth-callout and enabled bridge Deployments use the NGC repositories and RC tag shown above. Keep the same values when installing or upgrading.
+
+## Promote and Deploy an RC
+
+Keep promotion disabled until the [shared promotion setup](https://github.com/dsx-ai-factory/dsx-github-actions/blob/main/docs/promote-rc.md) is complete, including the protected environment, reviewers, and credentials. Then follow these steps:
+
+1. Add the dispatcher and policy to `main`. Update each existing `release/X.Y.Z` branch's `.github/workflows/release-rc.yml` to use the policy's `source_publisher_sha` and `promotion-manifest: true`.
+1. Publish a new RC through that release branch and have QA validate it. Older RCs without a promotion manifest cannot be selected.
+1. After activation, open **Actions > Promote RC > Run workflow** on `main`. Enter the QA-approved `X.Y.Z-rc.N` and obtain release approval.
+1. Download the promoted `X.Y.Z` charts. Keep your site settings and the repository and pull-secret overrides above, changing image tags to `X.Y.Z`. Render and check image references before installation.
+
+Promotion reuses image digests without rebuilding; embedded image versions remain RC versions. The stable `nats-event-bus` chart retains its vendored RC `auth-callout` chart. Set its image tag explicitly to select the stable image; otherwise retain access to the RC image.
