@@ -30,7 +30,7 @@ DSX Exchange is the integration layer within DSX OS that connects AI factory sub
   - `mqttbs/` — MQTT benchmark tool (connection, fanout, fanin, p2p scenarios)
   - `event-bus/` — per-site NATS values, secret generators, and local tests
   - `infra/` — Kind cluster, MetalLB, Envoy Gateway, cert-manager, Keycloak setup scripts
-- `fern/` — Fern docs configuration (renders docs/ as hosted site)
+- `.github/fern-docs.yml` — Fern docs configuration (renders docs/ as hosted site)
 - `docs/` — canonical documentation (see below)
 
 ## Tech Stack

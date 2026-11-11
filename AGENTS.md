@@ -120,10 +120,11 @@ made it stale.
 
 ## Fern docs
 
-- Config: `fern/docs.yml` with `global-theme: nvidia`.
+- Config: `.github/fern-docs.yml` with `global-theme: nvidia`.
 - Docs content lives in `docs/` (Markdown and MDX).
 - Schema pages are generated from AsyncAPI specs — see `scripts/generate_asyncapi_docs.py`.
-- CI runs `fern check`, `tools/check-docs-mdx`, and offline link checking.
+- The shared workflow generates `fern/`, checks Fern configuration and MDX,
+  and checks links offline.
 - Do not upgrade the Fern CLI version without explicit instruction.
 
 ## Documentation

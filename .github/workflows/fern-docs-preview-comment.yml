@@ -1,0 +1,27 @@
+# Copyright 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# Preview uses default-branch Fern configuration with the collected PR pages.
+name: "Fern Docs Preview: Comment"
+
+on:
+  workflow_run:
+    workflows: ["Fern Docs Preview: Build"]
+    types: [completed]
+
+permissions:
+  contents: read
+  pull-requests: write
+  actions: read
+
+jobs:
+  preview:
+    uses: dsx-ai-factory/dsx-github-actions/.github/workflows/fern-docs-preview-comment.yml@a86675cddd27de0cc3182d2a33db75a26c20bb90
+    with:
+      fern_docs_path: .github/fern-docs.yml
+      fern_organization: nvidia
+      runner: linux-amd64-cpu4
+      fern_cli_version: '5.65.2'
+      docs_directory: docs
+    secrets:
+      FERN_TOKEN: ${{ secrets.DOCS_FERN_TOKEN }}
