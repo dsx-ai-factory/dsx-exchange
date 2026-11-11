@@ -236,6 +236,12 @@ func (pm *PermissionsManager) load(data []byte) error {
 	return nil
 }
 
+// HasOAuth2Entries reports whether the loaded permissions define any OAuth2 clients.
+func (pm *PermissionsManager) HasOAuth2Entries() bool {
+	lookup := pm.oauth2Lookup.Load()
+	return lookup != nil && len(*lookup) > 0
+}
+
 // GetOAuth2Profile returns the user profile and required scope for OAuth2 claims (subject and azp)
 func (pm *PermissionsManager) GetOAuth2Profile(subject, azp string) (UserProfile, string, bool) {
 	lookup := pm.oauth2Lookup.Load()

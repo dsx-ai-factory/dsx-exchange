@@ -57,6 +57,37 @@ func TestPermissionsManagerReloadsRewrittenFile(t *testing.T) {
 	}, 2*permissionsReloadPollingInterval, 100*time.Millisecond)
 }
 
+func TestPermissionsManagerHasOAuth2Entries(t *testing.T) {
+	tests := []struct {
+		name   string
+		config PermissionsConfig
+		want   bool
+	}{
+		{"no entries", PermissionsConfig{NoAuth: &NoAuthEntry{Account: "APP"}}, false},
+		{
+			"oauth2 client",
+			PermissionsConfig{OAuth2: map[string]*OAuth2Entry{"app": {Azp: "app-client", Account: "APP"}}},
+			true,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			data, err := json.Marshal(test.config)
+			require.NoError(t, err)
+			permissionsFile := filepath.Join(t.TempDir(), "permissions.json")
+			require.NoError(t, os.WriteFile(permissionsFile, data, 0o600))
+
+			pm, err := NewPermissionsManager(permissionsFile, testLogger())
+			require.NoError(t, err)
+			t.Cleanup(func() {
+				require.NoError(t, pm.Close())
+			})
+
+			require.Equal(t, test.want, pm.HasOAuth2Entries())
+		})
+	}
+}
+
 func testLogger() *otelzap.Logger {
 	return otelzap.New(zap.NewNop())
 }
