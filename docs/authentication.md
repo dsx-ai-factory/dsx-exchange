@@ -2,7 +2,7 @@
 
 Every signal on DSX Exchange has a verified origin. Every subscriber is authorized for the topics it reads. This is enforced by the auth-callout service — a NATS Auth Callout that authenticates all client connections and issues topic-level permissions at connect time.
 
-A single auth-callout instance handles authentication for both the main NATS cluster and the optional mTLS NATS cluster within each Kubernetes cluster. The auth model maps to two primary integration patterns: OAuth2 (JWT) for software clients, agents, and MCP interfaces; mTLS (X.509 client certificates) for BMS and OT devices that connect over MQTT.
+A single auth-callout instance handles authentication for both the main NATS cluster and the optional mTLS NATS cluster within each Kubernetes cluster. The auth model maps to two primary integration patterns: OAuth2 (JWT) for software clients, agents, and MCP interfaces; mTLS (X.509 client certificates) for BMS and OT devices that connect over MQTT. Workloads that have a DSX workload identity can also connect with their DSX JWT-SVID instead of an OAuth2 client secret.
 
 ## Auth Flow
 
@@ -17,7 +17,9 @@ sequenceDiagram
     C->>GW: Connect (with credentials)
     GW->>N: TCP forward
     N->>A: Auth callout request (NKey-signed, XKey-encrypted)
-    alt OAuth2
+    alt SVID
+        A->>A: Verify JWT-SVID with the Identity Keys JWKS, match tenant, region, service, partition, and role to an svid rule
+    else OAuth2
         A->>K: Validate JWT via JWKS
         K-->>A: Key set
         A->>A: Verify token, match azp/subject to permissions
@@ -48,6 +50,43 @@ auth-callout:
       issuer: "https://keycloak.example.com/realms/event-bus"
 ```
 
+### DSX Workload Identity (JWT-SVID)
+
+A workload that has a DSX workload identity connects with the username `svid` and its DSX JWT-SVID as the password. The client requests the token for the configured audience, `dsx-exchange` in the examples on this page. The auth-callout verifies the token signature with the Identity Keys JWKS. It also checks the signing algorithm, the expiry, the audience, and the issuer. Then it matches the token claims to an `svid` rule.
+
+An `svid` rule matches these token claims:
+
+- `dsx.nvidia.com/tenant`, `dsx.nvidia.com/region`, `dsx.nvidia.com/service`, and `dsx.nvidia.com/partition` must equal the rule's `tenant`, `region`, `service`, and `partition`.
+- If the rule sets `role`, the `dsx.nvidia.com/resource` claim must contain an entry with `resource_type: role` and that `resource_id`.
+- A rule without `role` matches every role of the service, and tokens with no role.
+
+A rule for the token's role wins over a rule for the whole service. If no rule matches, the auth-callout refuses the connection. It also refuses a connection with the username `svid` and no token. It does not apply the noauth permissions to a refused `svid` connection.
+
+#### What an svid Rule Trusts
+
+An `svid` rule grants its permissions to every workload that the DSX identity platform issues a token to with matching tenant, region, service, partition, and role claims. Scope each rule to the narrowest identity and the fewest subjects the workload needs.
+
+The auth-callout checks the token only when the client connects. A connection keeps its permissions after the token expires, until the connection closes. To remove access, change the rule and disconnect the client. The client must send a current token on each reconnect.
+
+#### Configure the SVID Authenticator
+
+SVID authentication is off until you set the `svid` block. Set it in the Helm values of each cluster that accepts SVID clients:
+
+```yaml
+auth-callout:
+  serviceConfig:
+    svid:
+      jwks-url: "http://<identity-keys-service>:8080/.well-known/jwks.json"
+      allow-insecure: true # Needed for an in-cluster HTTP endpoint.
+      issuers:
+        - "https://<issuer>"
+      audience: "dsx-exchange"
+      signing-algorithms:
+        - ES256
+```
+
+All fields in the `svid` block are required. The auth-callout exits at startup when the block is not valid. It also exits when the permissions define `svid` rules and the `svid` block is not set.
+
 ### mTLS (X.509 Client Certificates)
 
 BMS and OT devices connect to the mTLS NATS endpoint (port 8883) with a client certificate. TLS is terminated at the NATS pod (the Gateway API controller uses TCP passthrough for this listener). The auth-callout extracts the certificate's Common Name and matches it to a permissions entry.
@@ -73,6 +112,7 @@ Connections that don't match any other auth mode receive the noauth permissions.
 
 | Type | Identifier Field | Matched Against |
 |------|------------------|-----------------|
+| `svid` | `tenant`, `region`, `service`, `partition`, and optional `role` | DSX JWT-SVID claims validated with the Identity Keys JWKS |
 | `oauth2` | `azp` or `subject` | JWT token claims validated via JWKS |
 | `mtls` | `identity` | X.509 certificate Common Name |
 | `nkey` | `public_key` | NATS NKey public key |
@@ -96,6 +136,17 @@ global:
                 allow: ["events.>"]
               sub:
                 allow: ["events.>"]
+        svid:
+          dsx-svid-test:
+            tenant: "tenant-1"
+            region: "region-1"
+            service: "dsx"
+            partition: "example.com"
+            role: "svid-test"
+            account: "CSC"
+            permissions:
+              pub:
+                allow: ["svid.test.>"]
         mtls:
           bms-gateway:
             identity: "CN=bms.cpc-1"
@@ -127,6 +178,10 @@ The chart renders this into a ConfigMap that the auth-callout pod mounts.
 
 Subject wildcards: `*` matches one token, `>` matches one or more tokens.
 
+NATS allows every subject when `pub` or `sub` has no `allow` list. An `svid` rule does not use this behavior: when its `pub` or `sub` has no `allow` list, the rule denies every subject for that direction. In the example above, the `dsx-svid-test` rule can publish to `svid.test.>` and cannot subscribe.
+
+The auth-callout does not start when two `svid` rules match the same tenant, region, service, partition, and role. A permissions reload with such a conflict fails, and the auth-callout keeps the rules that it loaded before.
+
 ## Secrets Management
 
 The auth-callout service requires three NKey seeds, provided as Kubernetes Secrets (Vault with Vault Secrets Operator is one option for managing these, but any secrets pipeline that materializes Kubernetes Secrets works):
@@ -148,9 +203,10 @@ Auth-callout exposes Prometheus metrics at `:9090/metrics`:
 | `auth_requests_total` | counter | Total auth callout requests |
 | `auth_errors_total` | counter | Total auth callout errors |
 | `auth_request_duration_seconds` | histogram | Auth request latency |
+| `auth_svid_attempts_total` | counter | SVID auth attempts |
 | `auth_oauth2_attempts_total` | counter | OAuth2 auth attempts |
 | `auth_mtls_attempts_total` | counter | mTLS auth attempts |
 | `auth_nkey_attempts_total` | counter | NKey auth attempts |
 | `auth_noauth_attempts_total` | counter | NoAuth auth attempts |
 
-Each `*_attempts_total` metric has a corresponding `*_failures_total` counter.
+Each `*_attempts_total` metric has a corresponding `*_failures_total` counter. The `reason` label of `auth_svid_failures_total` is one of `missing_token`, `invalid_token`, `token_expired`, `invalid_audience`, `invalid_issuer`, `invalid_claims`, or `no_rule`.

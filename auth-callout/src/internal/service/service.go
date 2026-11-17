@@ -49,6 +49,7 @@ type Service struct {
 	authService    *callout.AuthorizationService
 	permManager    *perms.PermissionsManager
 	authenticators []auth.Authenticator
+	stopJWKS       []func() // stops the key set refresh of each JWKS authenticator
 	issuerKeyPair  nkeys.KeyPair
 	issuerPubKey   string
 	curveKeyPair   nkeys.KeyPair
@@ -60,6 +61,7 @@ type ServiceConfig struct {
 	Observability obsconfig.ObservabilityConfig `koanf:"observability"`
 	NATS          NATSConfig                    `koanf:"nats"`
 	JWKS          JWKSConfig                    `koanf:"jwks"`
+	SVID          *auth.SVIDConfig              `koanf:"svid"`
 	MTLS          MTLSConfig                    `koanf:"mtls"`
 	Permissions   PermissionsFileConfig         `koanf:"permissions"`
 }
@@ -135,9 +137,25 @@ func New(config ServiceConfig, logger *otelzap.Logger) *Service {
 
 	// Build list of authenticators in priority order
 	var authenticators []auth.Authenticator
+	var stopJWKS []func()
 
 	if err := validateOAuth2Config(config.JWKS.URL, pm.HasOAuth2Entries()); err != nil {
 		logger.Fatal("invalid OAuth2 configuration", zap.Error(err))
+	}
+	if err := validateSVIDConfig(config.SVID != nil, pm.HasSVIDEntries()); err != nil {
+		logger.Fatal("invalid SVID configuration", zap.Error(err))
+	}
+
+	// SVID authenticator. It goes before OAuth2, which claims any NATS token,
+	// so that username "svid" always reaches it.
+	if config.SVID != nil {
+		svidAuth, err := auth.NewSVIDAuthenticator(*config.SVID, pm, logger, serviceName)
+		if err != nil {
+			logger.Fatal("error initializing SVID authenticator", zap.Error(err))
+		}
+		authenticators = append(authenticators, svidAuth)
+		stopJWKS = append(stopJWKS, svidAuth.Close)
+		logger.Info("SVID authenticator enabled", zap.String("jwks_url", config.SVID.JWKSURL))
 	}
 
 	// OAuth2 authenticator
@@ -147,6 +165,7 @@ func New(config ServiceConfig, logger *otelzap.Logger) *Service {
 			logger.Fatal("error initializing OAuth2 authenticator", zap.Error(err))
 		}
 		authenticators = append(authenticators, oauth2Auth)
+		stopJWKS = append(stopJWKS, oauth2Auth.Close)
 		logger.Info("OAuth2 authenticator enabled", zap.String("jwks_url", config.JWKS.URL))
 	}
 
@@ -195,6 +214,7 @@ func New(config ServiceConfig, logger *otelzap.Logger) *Service {
 		rootRouter:     rootRouter,
 		permManager:    pm,
 		authenticators: authenticators,
+		stopJWKS:       stopJWKS,
 		issuerKeyPair:  issuerKeyPair,
 		issuerPubKey:   issuerPubKey,
 		curveKeyPair:   curveKeyPair,
@@ -207,6 +227,15 @@ func New(config ServiceConfig, logger *otelzap.Logger) *Service {
 func validateOAuth2Config(jwksURL string, hasOAuth2Entries bool) error {
 	if hasOAuth2Entries && jwksURL == "" {
 		return errors.New("permissions define OAuth2 clients but jwks.url is not set")
+	}
+	return nil
+}
+
+// validateSVIDConfig rejects SVID permission entries when no svid block
+// registers the SVID authenticator. Without it, no connection can match them.
+func validateSVIDConfig(svidConfigured bool, hasSVIDEntries bool) error {
+	if hasSVIDEntries && !svidConfigured {
+		return errors.New("permissions define SVID entries but the svid block is not set")
 	}
 	return nil
 }
@@ -317,6 +346,10 @@ func (s *Service) Run(ctx context.Context) error {
 	// Close permissions manager
 	if err := s.permManager.Close(); err != nil {
 		s.logger.Error("error closing permissions manager", zap.Error(err))
+	}
+
+	for _, stop := range s.stopJWKS {
+		stop()
 	}
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

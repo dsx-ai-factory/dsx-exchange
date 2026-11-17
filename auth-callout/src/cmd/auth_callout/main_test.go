@@ -6,6 +6,7 @@ package main
 import (
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -14,6 +15,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/NVIDIA/dsx-exchange/auth-callout/src/internal/appconfig"
+	"github.com/NVIDIA/dsx-exchange/auth-callout/src/internal/auth"
+	"github.com/NVIDIA/dsx-exchange/auth-callout/src/internal/service"
 )
 
 func TestRunServerDoesNotLogConfiguredNATSSeeds(t *testing.T) {
@@ -68,6 +71,47 @@ func TestDefaultConfigIncludesJWKSSettings(t *testing.T) {
 	require.NoError(t, manager.Unmarshal(&config))
 	require.Equal(t, []string{"RS256"}, config.JWKS.SigningAlgorithms)
 	require.False(t, config.JWKS.AllowInsecure)
+}
+
+func TestSVIDIsOffUnlessConfigured(t *testing.T) {
+	tests := []struct {
+		name   string
+		config string
+		want   *auth.SVIDConfig
+	}{
+		{name: "no svid block", config: "host:\n  port: 8000\n"},
+		{
+			name: "svid block",
+			config: `svid:
+  jwks-url: "http://identity-keys.example.com:8080/.well-known/jwks.json"
+  allow-insecure: true
+  issuers: ["https://issuer.example.com"]
+  audience: "dsx-exchange"
+  signing-algorithms: ["ES256"]
+`,
+			want: &auth.SVIDConfig{
+				JWKSURL:           "http://identity-keys.example.com:8080/.well-known/jwks.json",
+				AllowInsecure:     true,
+				Issuers:           []string{"https://issuer.example.com"},
+				Audience:          "dsx-exchange",
+				SigningAlgorithms: []string{"ES256"},
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			configFile := filepath.Join(t.TempDir(), "config.yaml")
+			require.NoError(t, os.WriteFile(configFile, []byte(test.config), 0o600))
+			t.Setenv("AUTH_CALLOUT_CONFIG", configFile)
+			t.Setenv("AUTH_CALLOUT_HOT_CONFIG", "")
+
+			manager := appconfig.New(defaultConfigYAML)
+			require.NoError(t, manager.Load())
+			var config service.ServiceConfig
+			require.NoError(t, manager.Unmarshal(&config))
+			require.Equal(t, test.want, config.SVID)
+		})
+	}
 }
 
 func captureStderr(t *testing.T, fn func()) string {

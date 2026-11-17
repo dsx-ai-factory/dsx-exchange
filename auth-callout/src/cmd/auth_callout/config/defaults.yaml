@@ -20,6 +20,17 @@ jwks:
   signing-algorithms:
     - RS256          # Allowed JWT signing algorithms
 
+# DSX JWT-SVID authentication. Off unless an svid block is set; every field
+# is required once it is.
+# svid:
+#   jwks-url: "http://<identity-keys-service>:8080/.well-known/jwks.json"
+#   allow-insecure: true # Needed for an in-cluster HTTP JWKS endpoint
+#   issuers:
+#     - "https://<issuer>"
+#   audience: "dsx-exchange"
+#   signing-algorithms:
+#     - ES256
+
 # mTLS configuration
 mtls:
   ca-path: ""        # Path to CA certificate file

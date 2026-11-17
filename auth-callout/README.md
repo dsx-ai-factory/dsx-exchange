@@ -38,6 +38,15 @@ jwks:
     - RS256
     - ES256
 
+svid:
+  jwks-url: "http://<identity-keys-service>:8080/.well-known/jwks.json"
+  allow-insecure: true
+  issuers:
+    - "https://<issuer>"
+  audience: "dsx-exchange"
+  signing-algorithms:
+    - ES256
+
 mtls:
   ca-path: "/etc/ssl/certs/ca.crt"
 
@@ -55,6 +64,28 @@ observability:
   tracing:
     enabled: false
 ```
+
+### SVID Config
+
+The `svid` block turns on DSX JWT-SVID authentication. Without the block, the
+service does not register the SVID authenticator. With the block, all fields
+are required, and the service exits at startup when a field is not valid. The
+service also exits when `permissions.json` has `svid` entries and the `svid`
+block is not set.
+
+| Key | Description |
+|-----|-------------|
+| `jwks-url` | JWKS endpoint of the Identity Keys service that signs DSX tokens |
+| `allow-insecure` | Allows an HTTP `jwks-url`; set it to `true` for an in-cluster HTTP endpoint |
+| `issuers` | Accepted `iss` values |
+| `audience` | Required `aud` value; clients request tokens for this audience |
+| `signing-algorithms` | Accepted JWT `alg` values; DSX tokens use `ES256` |
+
+Clients connect with the username `svid` and the token as the password. The
+SVID authenticator handles every connection with the username `svid`, including
+one without a token. It runs before the OAuth2 authenticator, because the OAuth2
+authenticator accepts every NATS token. A failed SVID connection, such as one
+without a token, is refused and does not fall back to `noauth`.
 
 ### NKey Seeds
 
@@ -79,8 +110,9 @@ Client mappings in `permissions.json`. Each auth type (`oauth2`, `mtls`, `nkey`)
 is a map of client entries.
 
 **Environment Variable Expansion**: String values support `${VAR}` syntax for
-fields like `public_key`, `account`, `identity`, `subject`, and `azp`. JSON
-keys are not expanded, just values.
+fields like `public_key`, `account`, `identity`, `subject`, `azp`, and the
+`svid` fields `tenant`, `region`, `service`, `partition`, and `role`. JSON keys
+are not expanded, just values.
 
 ```json
 {
@@ -101,6 +133,19 @@ keys are not expanded, just values.
       "permissions": {
         "pub": { "allow": ["sensors.>"] },
         "sub": { "allow": ["commands.>"] }
+      }
+    }
+  },
+  "svid": {
+    "dsx-svid-test": {
+      "tenant": "tenant-1",
+      "region": "region-1",
+      "service": "dsx",
+      "partition": "example.com",
+      "role": "svid-test",
+      "account": "CSC",
+      "permissions": {
+        "pub": { "allow": ["svid.test.>"] }
       }
     }
   },
@@ -129,9 +174,18 @@ keys are not expanded, just values.
 | `oauth2` | `azp` or `subject` | JWT token validated via JWKS |
 | `mtls` | `identity` | X.509 certificate Common Name |
 | `nkey` | `public_key` | NATS NKey public key |
+| `svid` | `tenant`, `region`, `service`, `partition`, optional `role` | DSX JWT-SVID claims |
 | `noauth` | (none) | Anonymous access fallback |
 
 Subject wildcards: `*` matches one token, `>` matches one or more tokens.
+
+An `svid` entry matches the `dsx.nvidia.com/tenant`, `region`, `service`, and
+`partition` claims. With `role`, it also requires the role entry of the
+`dsx.nvidia.com/resource` claim. The service uses the entry for the token's role
+first, and then the entry without a role. Two entries for the same identity
+fail the load. A `pub` or `sub` without an `allow` list denies every subject,
+because NATS allows every subject for an empty `allow` list. The NATS user name
+of an SVID connection is the token's SPIFFE ID.
 
 See https://docs.nats.io/running-a-nats-service/configuration/securing_nats/authorization for details.
 
@@ -194,6 +248,8 @@ Prometheus metrics at `http://auth-callout.127-0-0-1.nip.io:9090/metrics`.
 | `auth_requests_total` | counter | Total NATS auth callout requests |
 | `auth_errors_total` | counter | Total NATS auth callout errors |
 | `auth_request_duration_seconds` | histogram | Duration of auth requests |
+| `auth_svid_attempts_total` | counter | SVID authentication attempts |
+| `auth_svid_failures_total` | counter | SVID authentication failures by `reason`: `missing_token`, `invalid_token`, `token_expired`, `invalid_audience`, `invalid_issuer`, `invalid_claims`, `no_rule` |
 | `auth_oauth2_attempts_total` | counter | OAuth2 authentication attempts |
 | `auth_oauth2_failures_total` | counter | OAuth2 authentication failures |
 | `auth_mtls_attempts_total` | counter | mTLS authentication attempts |

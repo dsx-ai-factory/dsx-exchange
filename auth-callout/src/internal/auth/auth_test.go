@@ -39,40 +39,87 @@ func testLogger() *otelzap.Logger {
 	return otelzap.New(zapLogger)
 }
 
-func TestValidateOAuth2SigningAlgorithms(t *testing.T) {
+func TestValidateSigningAlgorithms(t *testing.T) {
+	publicKeyAlgorithms := []string{
+		"RS256", "RS384", "RS512",
+		"PS256", "PS384", "PS512",
+		"ES256", "ES384", "ES512",
+		"EdDSA",
+	}
+
 	tests := []struct {
 		name      string
+		method    string
 		input     []string
 		expectErr string
 	}{
 		{
 			name:      "rejects missing algorithms",
+			method:    "OAuth2",
 			expectErr: "OAuth2 signing algorithms are required",
 		},
 		{
-			name:  "accepts configured algorithms",
-			input: []string{"RS256", "ES256", "RS256"},
+			name:   "accepts configured algorithms",
+			method: "OAuth2",
+			input:  []string{"RS256", "ES256", "RS256"},
+		},
+		{
+			name:   "OAuth2 accepts every RSA, RSA-PSS, ECDSA and EdDSA algorithm",
+			method: "OAuth2",
+			input:  publicKeyAlgorithms,
+		},
+		{
+			name:   "SVID accepts every RSA, RSA-PSS, ECDSA and EdDSA algorithm",
+			method: "SVID",
+			input:  publicKeyAlgorithms,
 		},
 		{
 			name:      "rejects algorithms with whitespace",
+			method:    "OAuth2",
 			input:     []string{"RS256", " ES256"},
 			expectErr: `unsupported OAuth2 signing algorithm " ES256"`,
 		},
 		{
 			name:      "rejects empty algorithm",
+			method:    "OAuth2",
 			input:     []string{"RS256", ""},
 			expectErr: `unsupported OAuth2 signing algorithm ""`,
 		},
 		{
-			name:      "rejects unsupported algorithm",
+			name:      "rejects unknown algorithm",
+			method:    "OAuth2",
+			input:     []string{"RS1024"},
+			expectErr: `unsupported OAuth2 signing algorithm "RS1024"`,
+		},
+		{
+			name:      "OAuth2 rejects HMAC",
+			method:    "OAuth2",
 			input:     []string{"HS256"},
 			expectErr: `unsupported OAuth2 signing algorithm "HS256"`,
+		},
+		{
+			name:      "OAuth2 rejects none",
+			method:    "OAuth2",
+			input:     []string{"none"},
+			expectErr: `unsupported OAuth2 signing algorithm "none"`,
+		},
+		{
+			name:      "SVID rejects HMAC",
+			method:    "SVID",
+			input:     []string{"ES256", "HS256"},
+			expectErr: `unsupported SVID signing algorithm "HS256"`,
+		},
+		{
+			name:      "SVID rejects none",
+			method:    "SVID",
+			input:     []string{"ES256", "none"},
+			expectErr: `unsupported SVID signing algorithm "none"`,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateOAuth2SigningAlgorithms(tt.input)
+			err := validateSigningAlgorithms(tt.method, tt.input)
 			if tt.expectErr != "" {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.expectErr)
