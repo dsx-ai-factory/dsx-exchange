@@ -98,6 +98,15 @@ func TestSVIDIsOffUnlessConfigured(t *testing.T) {
 			},
 		},
 	}
+	// Inherited AUTH_CALLOUT_SVID_* settings would override the test YAML.
+	// Unset them, because an empty value still creates an svid block.
+	for _, env := range os.Environ() {
+		name, _, _ := strings.Cut(env, "=")
+		if strings.HasPrefix(name, "AUTH_CALLOUT_SVID_") {
+			t.Setenv(name, "") // Restores the original value after the test.
+			require.NoError(t, os.Unsetenv(name))
+		}
+	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			configFile := filepath.Join(t.TempDir(), "config.yaml")

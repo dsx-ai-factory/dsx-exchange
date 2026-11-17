@@ -94,6 +94,7 @@ of your platform. For how to get the token, refer to the documentation of your
 platform. Then connect with the username `svid` and the token as the password:
 
 ```bash
+DSX_TOKEN="$(cat /path/to/dsx-token)" # Use the path from your platform's documentation.
 mosquitto_pub \
   -h "${DSX_MQTT_HOST}" -p "${DSX_MQTT_PORT}" \
   -t svid/test/hello -m '{"temp":22.5}' \

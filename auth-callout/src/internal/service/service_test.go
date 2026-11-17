@@ -293,7 +293,8 @@ func TestSVIDConnectionsThroughAuthCallout(t *testing.T) {
 	// so the connection outlives the SVID and only new connections need a
 	// fresh one.
 	t.Run("connection outlives its token", func(t *testing.T) {
-		expiresAt := time.Now().Add(2 * time.Second)
+		// exp has whole-second precision. Keep it past the 2s connect timeout.
+		expiresAt := time.Now().Truncate(time.Second).Add(3 * time.Second)
 		shortLived := tokenExpiringAt("svid-test", expiresAt)
 		nc, asyncErrors := connectWithAsyncErrors(t, natsServer.ClientURL(),
 			nats.UserInfo("svid", shortLived), nats.NoReconnect())

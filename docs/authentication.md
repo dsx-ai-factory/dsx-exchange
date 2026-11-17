@@ -66,7 +66,7 @@ A rule for the token's role wins over a rule for the whole service. If no rule m
 
 An `svid` rule grants its permissions to every workload that the DSX identity platform issues a token to with matching tenant, region, service, partition, and role claims. Scope each rule to the narrowest identity and the fewest subjects the workload needs.
 
-The auth-callout checks the token only when the client connects. A connection keeps its permissions after the token expires, until the connection closes. To remove access, change the rule and disconnect the client. The client must send a current token on each reconnect.
+The auth-callout checks the token only when the client connects. A connection keeps its permissions after the token expires, until the connection closes. To remove access, change the rule and wait until each auth-callout replica logs `Config reloaded successfully`. Then disconnect the client. A client that reconnects before the reload keeps the old permissions until it disconnects again. The client must send a current token on each reconnect.
 
 #### Configure the SVID Authenticator
 
@@ -76,8 +76,7 @@ SVID authentication is off until you set the `svid` block. Set it in the Helm va
 auth-callout:
   serviceConfig:
     svid:
-      jwks-url: "http://<identity-keys-service>:8080/.well-known/jwks.json"
-      allow-insecure: true # Needed for an in-cluster HTTP endpoint.
+      jwks-url: "https://<identity-keys-host>/.well-known/jwks.json"
       issuers:
         - "https://<issuer>"
       audience: "dsx-exchange"
@@ -85,7 +84,7 @@ auth-callout:
         - ES256
 ```
 
-All fields in the `svid` block are required. The auth-callout exits at startup when the block is not valid. It also exits when the permissions define `svid` rules and the `svid` block is not set.
+All fields in the `svid` block are required. Avoid `allow-insecure: true`, which permits an `http://` JWKS URL: anyone who can change the key set in transit can forge tokens. The auth-callout exits at startup when the block is not valid. It also exits when the permissions define `svid` rules and the `svid` block is not set.
 
 ### mTLS (X.509 Client Certificates)
 

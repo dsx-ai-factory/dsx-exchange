@@ -23,8 +23,7 @@ jwks:
 # DSX JWT-SVID authentication. Off unless an svid block is set; every field
 # is required once it is.
 # svid:
-#   jwks-url: "http://<identity-keys-service>:8080/.well-known/jwks.json"
-#   allow-insecure: true # Needed for an in-cluster HTTP JWKS endpoint
+#   jwks-url: "https://<identity-keys-host>/.well-known/jwks.json"
 #   issuers:
 #     - "https://<issuer>"
 #   audience: "dsx-exchange"

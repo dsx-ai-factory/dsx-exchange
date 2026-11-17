@@ -39,8 +39,7 @@ jwks:
     - ES256
 
 svid:
-  jwks-url: "http://<identity-keys-service>:8080/.well-known/jwks.json"
-  allow-insecure: true
+  jwks-url: "https://<identity-keys-host>/.well-known/jwks.json"
   issuers:
     - "https://<issuer>"
   audience: "dsx-exchange"
@@ -76,7 +75,7 @@ block is not set.
 | Key | Description |
 |-----|-------------|
 | `jwks-url` | JWKS endpoint of the Identity Keys service that signs DSX tokens |
-| `allow-insecure` | Allows an HTTP `jwks-url`; set it to `true` for an in-cluster HTTP endpoint |
+| `allow-insecure` | Allows an HTTP `jwks-url`. Avoid it: anyone who can change the key set in transit can forge tokens |
 | `issuers` | Accepted `iss` values |
 | `audience` | Required `aud` value; clients request tokens for this audience |
 | `signing-algorithms` | Accepted JWT `alg` values; DSX tokens use `ES256` |
