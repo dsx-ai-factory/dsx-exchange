@@ -11,11 +11,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 
@@ -154,22 +156,26 @@ func TestValidateOAuth2Config(t *testing.T) {
 }
 
 func TestValidateSVIDConfig(t *testing.T) {
+	svid := &auth.SVIDConfig{Issuers: []string{"https://svid.example.com"}}
 	tests := []struct {
 		name           string
-		svidConfigured bool
+		svid           *auth.SVIDConfig
+		oauth2Issuer   string
 		hasSVIDEntries bool
-		wantErr        bool
+		wantErr        string
 	}{
-		{"svid entries without svid block", false, true, true},
-		{"svid entries with svid block", true, true, false},
-		{"svid block without svid entries", true, false, false},
-		{"neither configured", false, false, false},
+		{name: "svid entries without svid block", hasSVIDEntries: true, wantErr: "svid block"},
+		{name: "svid entries with svid block", svid: svid, hasSVIDEntries: true},
+		{name: "svid block without svid entries", svid: svid},
+		{name: "neither configured"},
+		{name: "different oauth2 issuer", svid: svid, oauth2Issuer: "https://oauth2.example.com"},
+		{name: "shared issuer", svid: svid, oauth2Issuer: "https://svid.example.com", wantErr: "also the jwks issuer"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			err := validateSVIDConfig(test.svidConfigured, test.hasSVIDEntries)
-			if test.wantErr {
-				require.ErrorContains(t, err, "svid block")
+			err := validateSVIDConfig(test.svid, test.oauth2Issuer, test.hasSVIDEntries)
+			if test.wantErr != "" {
+				require.ErrorContains(t, err, test.wantErr)
 				return
 			}
 			require.NoError(t, err)
@@ -180,7 +186,10 @@ func TestValidateSVIDConfig(t *testing.T) {
 // TestSVIDConnectionsThroughAuthCallout runs the service as the auth callout of
 // a real NATS server and connects clients with JWT-SVIDs.
 func TestSVIDConnectionsThroughAuthCallout(t *testing.T) {
-	const issuer = "https://issuer.example.com"
+	const (
+		issuer       = "https://issuer.example.com"
+		oauth2Issuer = "https://oauth2.example.com"
+	)
 	signingKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	require.NoError(t, err)
 
@@ -211,12 +220,25 @@ func TestSVIDConnectionsThroughAuthCallout(t *testing.T) {
 				},
 			},
 		},
+		OAuth2: map[string]*perms.OAuth2Entry{
+			"oauth2-test": {
+				Azp:     "oauth2-client",
+				Account: "CSC",
+				Permissions: jwt.Permissions{
+					Pub: jwt.Permission{Allow: []string{"oauth2.test.>"}},
+					Sub: jwt.Permission{Allow: []string{"oauth2.test.>"}},
+				},
+			},
+		},
 		NoAuth: &perms.NoAuthEntry{Account: "CSC"},
 	})
 	require.NoError(t, err)
 	permissionsFile := filepath.Join(t.TempDir(), "permissions.json")
 	require.NoError(t, os.WriteFile(permissionsFile, permissions, 0o600))
 
+	// OAuth2 shares the key set with SVID, so only the issuer decides which
+	// authenticator gets a token.
+	jwksURL := serveSigningKey(t, "svid-key", signingKey)
 	svc := New(ServiceConfig{
 		HostConfig: HostConfig{Port: 0},
 		NATS: NATSConfig{
@@ -224,8 +246,15 @@ func TestSVIDConnectionsThroughAuthCallout(t *testing.T) {
 			NKeySeed:   string(calloutUserSeed),
 			IssuerSeed: string(issuerSeed),
 		},
+		JWKS: JWKSConfig{
+			URL:               jwksURL,
+			Issuer:            oauth2Issuer,
+			Audience:          "dsx-exchange",
+			SigningAlgorithms: []string{"ES256"},
+			AllowInsecure:     true,
+		},
 		SVID: &auth.SVIDConfig{
-			JWKSURL:           serveSigningKey(t, "svid-key", signingKey),
+			JWKSURL:           jwksURL,
 			AllowInsecure:     true,
 			Issuers:           []string{issuer},
 			Audience:          "dsx-exchange",
@@ -241,6 +270,13 @@ func TestSVIDConnectionsThroughAuthCallout(t *testing.T) {
 		return authAccount.SubscriptionInterest(natsserver.AuthCalloutSubject)
 	}, 5*time.Second, 20*time.Millisecond, "auth callout service did not subscribe")
 
+	sign := func(claims gojwt.MapClaims) string {
+		jwtToken := gojwt.NewWithClaims(gojwt.SigningMethodES256, claims)
+		jwtToken.Header["kid"] = "svid-key"
+		signed, err := jwtToken.SignedString(signingKey)
+		require.NoError(t, err)
+		return signed
+	}
 	tokenExpiringAt := func(role string, expiresAt time.Time) string {
 		claims := gojwt.MapClaims{
 			"iss":                      issuer,
@@ -255,17 +291,13 @@ func TestSVIDConnectionsThroughAuthCallout(t *testing.T) {
 				{"resource_type": "role", "resource_id": role},
 			},
 		}
-		jwtToken := gojwt.NewWithClaims(gojwt.SigningMethodES256, claims)
-		jwtToken.Header["kid"] = "svid-key"
-		signed, err := jwtToken.SignedString(signingKey)
-		require.NoError(t, err)
-		return signed
+		return sign(claims)
 	}
 	token := func(role string) string {
 		return tokenExpiringAt(role, time.Now().Add(5*time.Minute))
 	}
 
-	t.Run("allowed publish is delivered", func(t *testing.T) {
+	t.Run("NATS client with username svid", func(t *testing.T) {
 		nc, _ := connectWithAsyncErrors(t, natsServer.ClientURL(), nats.UserInfo("svid", token("svid-test")))
 
 		sub, err := nc.SubscribeSync("svid.test.hello")
@@ -274,6 +306,57 @@ func TestSVIDConnectionsThroughAuthCallout(t *testing.T) {
 		msg, err := sub.NextMsg(2 * time.Second)
 		require.NoError(t, err)
 		assert.Equal(t, "hi", string(msg.Data))
+	})
+
+	// OAuth2 is on too, so this also shows that SVID claims its own tokens.
+	t.Run("NATS client with a token", func(t *testing.T) {
+		nc, _ := connectWithAsyncErrors(t, natsServer.ClientURL(), nats.Token(token("svid-test")))
+
+		sub, err := nc.SubscribeSync("svid.test.token")
+		require.NoError(t, err)
+		require.NoError(t, nc.Publish("svid.test.token", []byte("hi")))
+		msg, err := sub.NextMsg(2 * time.Second)
+		require.NoError(t, err)
+		assert.Equal(t, "hi", string(msg.Data))
+	})
+
+	t.Run("OAuth2 token still reaches OAuth2", func(t *testing.T) {
+		oauth2Token := sign(gojwt.MapClaims{
+			"iss":   oauth2Issuer,
+			"sub":   "oauth2-client",
+			"azp":   "oauth2-client",
+			"aud":   []string{"dsx-exchange"},
+			"exp":   time.Now().Add(5 * time.Minute).Unix(),
+			"scope": "mqtt",
+		})
+		nc, _ := connectWithAsyncErrors(t, natsServer.ClientURL(), nats.Token(oauth2Token))
+
+		sub, err := nc.SubscribeSync("oauth2.test.hello")
+		require.NoError(t, err)
+		require.NoError(t, nc.Publish("oauth2.test.hello", []byte("hi")))
+		msg, err := sub.NextMsg(2 * time.Second)
+		require.NoError(t, err)
+		assert.Equal(t, "hi", string(msg.Data))
+	})
+
+	t.Run("MQTT client publishes to an allowed topic", func(t *testing.T) {
+		nc, _ := connectWithAsyncErrors(t, natsServer.ClientURL(), nats.UserInfo("svid", token("svid-test")))
+		sub, err := nc.SubscribeSync("svid.test.mqtt")
+		require.NoError(t, err)
+		require.NoError(t, nc.Flush())
+
+		conn, rc := mqttConnect(t, mqttAddr(t, natsServer), "svid-mqtt", "svid", token("svid-test"))
+		require.Equal(t, byte(0), rc, "CONNACK return code")
+		writeMQTTPacket(t, conn, 0x30, append(mqttString("svid/test/mqtt"), "hi"...)) // PUBLISH, QoS 0
+
+		msg, err := sub.NextMsg(2 * time.Second)
+		require.NoError(t, err)
+		assert.Equal(t, "hi", string(msg.Data))
+	})
+
+	t.Run("MQTT client with an invalid token is refused", func(t *testing.T) {
+		_, rc := mqttConnect(t, mqttAddr(t, natsServer), "svid-mqtt-invalid", "svid", "not-a-jwt")
+		assert.NotEqual(t, byte(0), rc, "CONNACK return code")
 	})
 
 	t.Run("publish outside allowed subjects is denied", func(t *testing.T) {
@@ -349,17 +432,21 @@ func TestSVIDConnectionsThroughAuthCallout(t *testing.T) {
 	})
 }
 
-// runAuthCalloutNATSServer starts a NATS server that delegates every
-// connection, except the callout user's, to the auth callout service.
+// runAuthCalloutNATSServer starts a NATS server with an MQTT listener that
+// delegates every connection, except the callout user's, to the auth callout
+// service. MQTT needs JetStream in the account its clients use.
 func runAuthCalloutNATSServer(t *testing.T, issuerPub, calloutUserPub string) *natsserver.Server {
 	t.Helper()
 
 	configFile := filepath.Join(t.TempDir(), "nats.conf")
 	config := fmt.Sprintf(`
 listen: "127.0.0.1:-1"
+server_name: "auth-callout-test"
+jetstream { store_dir: %q }
+mqtt { listen: "127.0.0.1:-1" }
 accounts {
   AUTH { users: [ { nkey: %q } ] }
-  CSC {}
+  CSC { jetstream: enabled }
 }
 authorization {
   auth_callout {
@@ -368,7 +455,7 @@ authorization {
     auth_users: [ %q ]
   }
 }
-`, calloutUserPub, issuerPub, calloutUserPub)
+`, t.TempDir(), calloutUserPub, issuerPub, calloutUserPub)
 	require.NoError(t, os.WriteFile(configFile, []byte(config), 0o600))
 
 	opts, err := natsserver.ProcessConfigFile(configFile)
@@ -424,6 +511,64 @@ func serveSigningKey(t *testing.T, kid string, key *ecdsa.PrivateKey) string {
 	}))
 	t.Cleanup(server.Close)
 	return server.URL
+}
+
+// mqttAddr returns the address of the server's MQTT listener.
+func mqttAddr(t *testing.T, natsServer *natsserver.Server) string {
+	t.Helper()
+
+	varz, err := natsServer.Varz(nil)
+	require.NoError(t, err)
+	return net.JoinHostPort("127.0.0.1", strconv.Itoa(varz.MQTT.Port))
+}
+
+// mqttConnect sends an MQTT 3.1.1 CONNECT with a username and password and
+// returns the connection and the CONNACK return code.
+func mqttConnect(t *testing.T, addr, clientID, username, password string) (net.Conn, byte) {
+	t.Helper()
+
+	conn, err := net.DialTimeout("tcp", addr, 2*time.Second)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = conn.Close() })
+	require.NoError(t, conn.SetDeadline(time.Now().Add(5*time.Second)))
+
+	// Protocol "MQTT" level 4, flags username, password and clean session, keep alive 60s.
+	body := []byte{0, 4, 'M', 'Q', 'T', 'T', 4, 0xC2, 0, 60}
+	for _, field := range []string{clientID, username, password} {
+		body = append(body, mqttString(field)...)
+	}
+	writeMQTTPacket(t, conn, 0x10, body) // CONNECT
+
+	connack := make([]byte, 4)
+	_, err = io.ReadFull(conn, connack)
+	require.NoError(t, err)
+	require.Equal(t, byte(0x20), connack[0], "expected CONNACK")
+	return conn, connack[3]
+}
+
+// writeMQTTPacket writes a packet with the given first header byte.
+func writeMQTTPacket(t *testing.T, conn net.Conn, header byte, body []byte) {
+	t.Helper()
+
+	packet := []byte{header}
+	for n := len(body); ; {
+		digit := byte(n % 128)
+		n /= 128
+		if n > 0 {
+			digit |= 0x80
+		}
+		packet = append(packet, digit)
+		if n == 0 {
+			break
+		}
+	}
+	_, err := conn.Write(append(packet, body...))
+	require.NoError(t, err)
+}
+
+// mqttString encodes s as an MQTT UTF-8 string: a two-byte length, then s.
+func mqttString(s string) []byte {
+	return append([]byte{byte(len(s) >> 8), byte(len(s))}, s...)
 }
 
 // connectWithAsyncErrors connects to url and returns the server errors, such

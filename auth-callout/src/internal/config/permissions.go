@@ -51,9 +51,7 @@ type NKeyEntry struct {
 	Permissions jwt.Permissions `json:"permissions,omitempty"`
 }
 
-// SVIDKey is the DSX identity an SVID entry matches. Tenant, region, service
-// and partition must equal the token's claims. With a role, the token must
-// carry that role; an empty role matches every role of the service.
+// SVIDKey is the DSX workload identity that an SVID entry matches exactly
 type SVIDKey struct {
 	Tenant    string `json:"tenant"`
 	Region    string `json:"region"`
@@ -62,8 +60,7 @@ type SVIDKey struct {
 	Role      string `json:"role,omitempty"`
 }
 
-// SVIDEntry grants access to DSX JWT-SVIDs whose identity matches its key.
-// The key's fields are promoted, so they sit next to account in the JSON.
+// SVIDEntry represents a DSX JWT-SVID workload configuration
 type SVIDEntry struct {
 	SVIDKey
 	Account     string          `json:"account"`
@@ -295,23 +292,10 @@ func buildSVIDLookup(entries map[string]*SVIDEntry) (map[SVIDKey]UserProfile, er
 		lookup[key] = UserProfile{
 			Name:        name,
 			Account:     account,
-			Permissions: denyUnlistedSubjects(entry.Permissions),
+			Permissions: entry.Permissions,
 		}
 	}
 	return lookup, nil
-}
-
-// denyUnlistedSubjects makes a pub or sub with no allow list deny every
-// subject. NATS treats an empty allow list as allow-all, which is the wrong
-// default for a rule that any matching pod can use.
-func denyUnlistedSubjects(permissions jwt.Permissions) jwt.Permissions {
-	if len(permissions.Pub.Allow) == 0 {
-		permissions.Pub = jwt.Permission{Deny: []string{">"}}
-	}
-	if len(permissions.Sub.Allow) == 0 {
-		permissions.Sub = jwt.Permission{Deny: []string{">"}}
-	}
-	return permissions
 }
 
 // HasOAuth2Entries reports whether the loaded permissions define any OAuth2 clients.
@@ -363,20 +347,12 @@ func (pm *PermissionsManager) HasSVIDEntries() bool {
 	return lookup != nil && len(*lookup) > 0
 }
 
-// GetSVIDProfile returns the profile for a DSX identity. An entry for the
-// identity's role wins over an entry for the whole service.
+// GetSVIDProfile returns the user profile for a DSX workload identity
 func (pm *PermissionsManager) GetSVIDProfile(key SVIDKey) (UserProfile, bool) {
 	lookup := pm.svidLookup.Load()
 	if lookup == nil {
 		return UserProfile{}, false
 	}
-	if profile, ok := (*lookup)[key]; ok {
-		return profile, true
-	}
-	if key.Role == "" {
-		return UserProfile{}, false
-	}
-	key.Role = ""
 	profile, ok := (*lookup)[key]
 	return profile, ok
 }

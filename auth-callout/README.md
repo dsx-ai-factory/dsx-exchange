@@ -66,25 +66,17 @@ observability:
 
 ### SVID Config
 
-The `svid` block turns on DSX JWT-SVID authentication. Without the block, the
-service does not register the SVID authenticator. With the block, all fields
-are required, and the service exits at startup when a field is not valid. The
-service also exits when `permissions.json` has `svid` entries and the `svid`
-block is not set.
+The optional `svid` block enables DSX JWT-SVID authentication. MQTT clients
+connect with the username `svid` and the token as the password. NATS clients can
+also send the token as a NATS token.
 
 | Key | Description |
 |-----|-------------|
-| `jwks-url` | JWKS endpoint of the Identity Keys service that signs DSX tokens |
-| `allow-insecure` | Allows an HTTP `jwks-url`. Avoid it: anyone who can change the key set in transit can forge tokens |
-| `issuers` | Accepted `iss` values |
-| `audience` | Required `aud` value; clients request tokens for this audience |
-| `signing-algorithms` | Accepted JWT `alg` values; DSX tokens use `ES256` |
-
-Clients connect with the username `svid` and the token as the password. The
-SVID authenticator handles every connection with the username `svid`, including
-one without a token. It runs before the OAuth2 authenticator, because the OAuth2
-authenticator accepts every NATS token. A failed SVID connection, such as one
-without a token, is refused and does not fall back to `noauth`.
+| `jwks-url` | Identity Keys JWKS endpoint |
+| `allow-insecure` | Allows an HTTP `jwks-url` |
+| `issuers` | Accepted token issuers |
+| `audience` | Required token audience |
+| `signing-algorithms` | Accepted signing algorithms |
 
 ### NKey Seeds
 
@@ -144,7 +136,8 @@ are not expanded, just values.
       "role": "svid-test",
       "account": "CSC",
       "permissions": {
-        "pub": { "allow": ["svid.test.>"] }
+        "pub": { "allow": ["svid.test.>"] },
+        "sub": { "allow": ["svid.test.>"] }
       }
     }
   },
@@ -173,18 +166,10 @@ are not expanded, just values.
 | `oauth2` | `azp` or `subject` | JWT token validated via JWKS |
 | `mtls` | `identity` | X.509 certificate Common Name |
 | `nkey` | `public_key` | NATS NKey public key |
-| `svid` | `tenant`, `region`, `service`, `partition`, optional `role` | DSX JWT-SVID claims |
+| `svid` | `tenant`, `region`, `service`, `partition`, `role` | DSX JWT-SVID claims validated via JWKS |
 | `noauth` | (none) | Anonymous access fallback |
 
 Subject wildcards: `*` matches one token, `>` matches one or more tokens.
-
-An `svid` entry matches the `dsx.nvidia.com/tenant`, `region`, `service`, and
-`partition` claims. With `role`, it also requires the role entry of the
-`dsx.nvidia.com/resource` claim. The service uses the entry for the token's role
-first, and then the entry without a role. Two entries for the same identity
-fail the load. A `pub` or `sub` without an `allow` list denies every subject,
-because NATS allows every subject for an empty `allow` list. The NATS user name
-of an SVID connection is the token's SPIFFE ID.
 
 See https://docs.nats.io/running-a-nats-service/configuration/securing_nats/authorization for details.
 

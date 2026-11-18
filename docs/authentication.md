@@ -18,7 +18,7 @@ sequenceDiagram
     GW->>N: TCP forward
     N->>A: Auth callout request (NKey-signed, XKey-encrypted)
     alt SVID
-        A->>A: Verify JWT-SVID with the Identity Keys JWKS, match tenant, region, service, partition, and role to an svid rule
+        A->>A: Verify JWT-SVID via JWKS, match identity claims to permissions
     else OAuth2
         A->>K: Validate JWT via JWKS
         K-->>A: Key set
@@ -52,25 +52,11 @@ auth-callout:
 
 ### DSX Workload Identity (JWT-SVID)
 
-A workload that has a DSX workload identity connects with the username `svid` and its DSX JWT-SVID as the password. The client requests the token for the configured audience, `dsx-exchange` in the examples on this page. The auth-callout verifies the token signature with the Identity Keys JWKS. It also checks the signing algorithm, the expiry, the audience, and the issuer. Then it matches the token claims to an `svid` rule.
+Workloads with a DSX workload identity connect with their DSX JWT-SVID. MQTT clients use the username `svid` and the token as the password. NATS clients can also send the token as a NATS token. The auth-callout verifies the token via the Identity Keys JWKS and matches its tenant, region, service, partition, and role claims exactly to an `svid` rule. A rule without `role` matches only tokens without a role.
 
-An `svid` rule matches these token claims:
+The token is checked only when the client connects. To remove access, change the rule, wait until each auth-callout replica logs `Config reloaded successfully`, and then disconnect the client.
 
-- `dsx.nvidia.com/tenant`, `dsx.nvidia.com/region`, `dsx.nvidia.com/service`, and `dsx.nvidia.com/partition` must equal the rule's `tenant`, `region`, `service`, and `partition`.
-- If the rule sets `role`, the `dsx.nvidia.com/resource` claim must contain an entry with `resource_type: role` and that `resource_id`.
-- A rule without `role` matches every role of the service, and tokens with no role.
-
-A rule for the token's role wins over a rule for the whole service. If no rule matches, the auth-callout refuses the connection. It also refuses a connection with the username `svid` and no token. It does not apply the noauth permissions to a refused `svid` connection.
-
-#### What an svid Rule Trusts
-
-An `svid` rule grants its permissions to every workload that the DSX identity platform issues a token to with matching tenant, region, service, partition, and role claims. Scope each rule to the narrowest identity and the fewest subjects the workload needs.
-
-The auth-callout checks the token only when the client connects. A connection keeps its permissions after the token expires, until the connection closes. To remove access, change the rule and wait until each auth-callout replica logs `Config reloaded successfully`. Then disconnect the client. A client that reconnects before the reload keeps the old permissions until it disconnects again. The client must send a current token on each reconnect.
-
-#### Configure the SVID Authenticator
-
-SVID authentication is off until you set the `svid` block. Set it in the Helm values of each cluster that accepts SVID clients:
+Configure the authenticator in the Helm values of each cluster that accepts SVID clients:
 
 ```yaml
 auth-callout:
@@ -83,8 +69,6 @@ auth-callout:
       signing-algorithms:
         - ES256
 ```
-
-All fields in the `svid` block are required. Avoid `allow-insecure: true`, which permits an `http://` JWKS URL: anyone who can change the key set in transit can forge tokens. The auth-callout exits at startup when the block is not valid. It also exits when the permissions define `svid` rules and the `svid` block is not set.
 
 ### mTLS (X.509 Client Certificates)
 
@@ -111,7 +95,7 @@ Connections that don't match any other auth mode receive the noauth permissions.
 
 | Type | Identifier Field | Matched Against |
 |------|------------------|-----------------|
-| `svid` | `tenant`, `region`, `service`, `partition`, and optional `role` | DSX JWT-SVID claims validated with the Identity Keys JWKS |
+| `svid` | `tenant`, `region`, `service`, `partition`, `role` | DSX JWT-SVID claims validated via JWKS |
 | `oauth2` | `azp` or `subject` | JWT token claims validated via JWKS |
 | `mtls` | `identity` | X.509 certificate Common Name |
 | `nkey` | `public_key` | NATS NKey public key |
@@ -146,6 +130,8 @@ global:
             permissions:
               pub:
                 allow: ["svid.test.>"]
+              sub:
+                allow: ["svid.test.>"]
         mtls:
           bms-gateway:
             identity: "CN=bms.cpc-1"
@@ -176,10 +162,6 @@ The chart renders this into a ConfigMap that the auth-callout pod mounts.
 | `resp` | Optional request-reply settings (`max`, `ttl`) |
 
 Subject wildcards: `*` matches one token, `>` matches one or more tokens.
-
-NATS allows every subject when `pub` or `sub` has no `allow` list. An `svid` rule does not use this behavior: when its `pub` or `sub` has no `allow` list, the rule denies every subject for that direction. In the example above, the `dsx-svid-test` rule can publish to `svid.test.>` and cannot subscribe.
-
-The auth-callout does not start when two `svid` rules match the same tenant, region, service, partition, and role. A permissions reload with such a conflict fails, and the auth-callout keeps the rules that it loaded before.
 
 ## Secrets Management
 

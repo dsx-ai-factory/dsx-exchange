@@ -126,24 +126,16 @@ func TestPermissionsManagerLoadsSVIDEntries(t *testing.T) {
 		wantSub  jwt.Permission
 	}{
 		{
-			name:     "role rule wins and omitted sub denies all",
+			name:     "role rule",
 			key:      withRole("svid-test"),
 			wantRule: "role-rule",
 			wantPub:  jwt.Permission{Allow: []string{"svid.test.>"}},
-			wantSub:  jwt.Permission{Deny: []string{">"}},
 		},
 		{
-			name:     "other role falls back to service rule and a deny-only pub denies all",
-			key:      withRole("other"),
-			wantRule: "service-rule",
-			wantPub:  jwt.Permission{Deny: []string{">"}},
-			wantSub:  jwt.Permission{Allow: []string{"svid.any.>"}},
-		},
-		{
-			name:     "no role matches service rule",
+			name:     "rule without a role",
 			key:      dsx,
 			wantRule: "service-rule",
-			wantPub:  jwt.Permission{Deny: []string{">"}},
+			wantPub:  jwt.Permission{Deny: []string{"svid.secret.>"}},
 			wantSub:  jwt.Permission{Allow: []string{"svid.any.>"}},
 		},
 	}
@@ -157,6 +149,11 @@ func TestPermissionsManagerLoadsSVIDEntries(t *testing.T) {
 			assert.Equal(t, test.wantSub, profile.Permissions.Sub)
 		})
 	}
+
+	t.Run("other role has no rule", func(t *testing.T) {
+		_, ok := pm.GetSVIDProfile(withRole("other"))
+		assert.False(t, ok)
+	})
 
 	t.Run("other service has no rule", func(t *testing.T) {
 		key := withRole("svid-test")

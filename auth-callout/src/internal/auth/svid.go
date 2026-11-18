@@ -21,8 +21,8 @@ import (
 	"github.com/NVIDIA/dsx-exchange/auth-callout/src/internal/observability/metrics"
 )
 
-// svidUsername routes a connection to the SVID authenticator. The password
-// carries the JWT-SVID.
+// svidUsername routes a username and password connection, such as an MQTT
+// client's, to the SVID authenticator. The password carries the JWT-SVID.
 const svidUsername = "svid"
 
 // roleResourceType marks the dsx.nvidia.com/resource entry that names the
@@ -146,24 +146,41 @@ func NewSVIDAuthenticator(cfg SVIDConfig, pm *config.PermissionsManager, logger 
 }
 
 // CanAuthenticate claims every connection with username "svid", with or
-// without a token, so that no such connection falls through to another
-// authenticator.
+// without a token, and every NATS token from a trusted SVID issuer.
 func (s *SVIDAuthenticator) CanAuthenticate(rc *natsjwt.AuthorizationRequestClaims) bool {
-	return rc.ConnectOptions.Username == svidUsername
+	if rc.ConnectOptions.Username == svidUsername {
+		return true
+	}
+	return rc.ConnectOptions.Token != "" && s.hasTrustedIssuer(rc.ConnectOptions.Token)
 }
 
-// TryAuthenticate verifies the JWT-SVID in the password and returns the profile
-// of the entry that matches its identity.
+// hasTrustedIssuer reads the issuer of a token without verifying it. It only
+// routes the token. TryAuthenticate verifies it.
+func (s *SVIDAuthenticator) hasTrustedIssuer(token string) bool {
+	claims := &jwt.RegisteredClaims{}
+	if _, _, err := jwt.NewParser().ParseUnverified(token, claims); err != nil {
+		return false
+	}
+	_, ok := s.issuers[claims.Issuer]
+	return ok
+}
+
+// TryAuthenticate verifies the JWT-SVID and returns the profile of the entry
+// that matches its identity.
 func (s *SVIDAuthenticator) TryAuthenticate(ctx context.Context, rc *natsjwt.AuthorizationRequestClaims) (config.UserProfile, error) {
 	s.attempts.Add(ctx, 1, metric.WithAttributes(attribute.String("method", "svid")))
 
-	if rc.ConnectOptions.Password == "" {
+	token := rc.ConnectOptions.Token
+	if token == "" && rc.ConnectOptions.Username == svidUsername {
+		token = rc.ConnectOptions.Password
+	}
+	if token == "" {
 		return s.fail(ctx, svidReasonMissingToken, "", errors.New("SVID connection has no token"))
 	}
 
 	claims := &svidClaims{}
 	_, err := jwt.ParseWithClaims(
-		rc.ConnectOptions.Password,
+		token,
 		claims,
 		s.jwks.Keyfunc,
 		jwt.WithValidMethods(s.signingAlgorithms),
@@ -199,8 +216,9 @@ func (s *SVIDAuthenticator) TryAuthenticate(ctx context.Context, rc *natsjwt.Aut
 }
 
 // Close stops refreshing the key set.
-func (s *SVIDAuthenticator) Close() {
+func (s *SVIDAuthenticator) Close() error {
 	s.cancel()
+	return nil
 }
 
 func (s *SVIDAuthenticator) fail(ctx context.Context, reason svidFailureReason, spiffeID string, err error) (config.UserProfile, error) {

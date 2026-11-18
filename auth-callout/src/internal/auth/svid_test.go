@@ -67,7 +67,7 @@ func newSVIDFixture(t *testing.T) svidFixture {
 		SigningAlgorithms: []string{gojwt.SigningMethodES256.Alg()},
 	}, pm, testLogger(), testServiceName)
 	require.NoError(t, err)
-	t.Cleanup(svidAuth.Close)
+	t.Cleanup(func() { require.NoError(t, svidAuth.Close()) })
 
 	return svidFixture{auth: svidAuth, ecKey: ecKey, rsaKey: rsaKey}
 }
@@ -87,18 +87,18 @@ func TestSVIDTryAuthenticate(t *testing.T) {
 		wantError string
 	}{
 		{
-			name:    "role rule wins over service-wide rule",
+			name:    "role rule",
 			wantPub: jwt.StringList{"svid.test.>"},
 		},
 		{
-			name: "service-wide rule matches a role without its own rule",
+			name: "role without a rule",
 			edit: func(claims gojwt.MapClaims) {
 				claims["dsx.nvidia.com/resource"] = resources("role", "other")
 			},
-			wantPub: jwt.StringList{"svid.any.>"},
+			wantError: "no SVID rule",
 		},
 		{
-			name: "service-wide rule matches a token without a role",
+			name: "rule without a role matches a token without a role",
 			edit: func(claims gojwt.MapClaims) {
 				// Entries of other types are not a role.
 				claims["dsx.nvidia.com/resource"] = resources("host", "host-1")
@@ -206,13 +206,17 @@ func TestSVIDTryAuthenticate(t *testing.T) {
 			assert.Equal(t, testSVIDSubject, profile.Name)
 			assert.Equal(t, "CSC", profile.Account)
 			assert.Equal(t, tt.wantPub, profile.Permissions.Pub.Allow)
-			assert.Equal(t, jwt.StringList{">"}, profile.Permissions.Sub.Deny, "omitted sub must deny every subject")
+			assert.Equal(t, jwt.Permission{}, profile.Permissions.Sub, "omitted sub keeps the NATS default")
 		})
 	}
 }
 
 func TestSVIDCanAuthenticate(t *testing.T) {
 	fixture := newSVIDFixture(t)
+	trusted := signToken(t, gojwt.SigningMethodES256, fixture.ecKey, testSVIDKID, validSVIDClaims())
+	otherIssuer := validSVIDClaims()
+	otherIssuer["iss"] = "https://other.example.com"
+	untrusted := signToken(t, gojwt.SigningMethodES256, fixture.ecKey, testSVIDKID, otherIssuer)
 
 	tests := []struct {
 		name     string
@@ -224,7 +228,9 @@ func TestSVIDCanAuthenticate(t *testing.T) {
 		{name: "svid username with token", username: "svid", password: "a.b.c", want: true},
 		{name: "svid username without token", username: "svid", want: true},
 		{name: "oauth2 username", username: "oauthtoken", password: "a.b.c"},
-		{name: "nats token", token: "a.b.c"},
+		{name: "nats token from a trusted issuer", token: trusted, want: true},
+		{name: "nats token from another issuer", token: untrusted},
+		{name: "nats token that is not a JWT", token: "a.b.c"},
 		{name: "no credentials"},
 	}
 
@@ -238,6 +244,17 @@ func TestSVIDCanAuthenticate(t *testing.T) {
 			assert.Equal(t, tt.want, fixture.auth.CanAuthenticate(rc))
 		})
 	}
+}
+
+func TestSVIDTryAuthenticateNATSToken(t *testing.T) {
+	fixture := newSVIDFixture(t)
+	rc := &jwt.AuthorizationRequestClaims{}
+	rc.ConnectOptions.Token = signToken(t, gojwt.SigningMethodES256, fixture.ecKey, testSVIDKID, validSVIDClaims())
+
+	profile, err := fixture.auth.TryAuthenticate(context.Background(), rc)
+	require.NoError(t, err)
+	assert.Equal(t, testSVIDSubject, profile.Name)
+	assert.Equal(t, jwt.StringList{"svid.test.>"}, profile.Permissions.Pub.Allow)
 }
 
 func TestNewSVIDAuthenticatorRejectsInvalidConfig(t *testing.T) {
@@ -424,8 +441,8 @@ func serveJWKS(t *testing.T, keys map[string]any) string {
 	return server.URL
 }
 
-// writeSVIDPermissions writes a role rule and a service-wide rule for service
-// dsx. Neither sets sub, so both deny every subscription.
+// writeSVIDPermissions writes a rule for role svid-test of service dsx and a
+// rule for the same service without a role.
 func writeSVIDPermissions(t *testing.T) string {
 	t.Helper()
 

@@ -7,8 +7,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
+	"slices"
 	"time"
 
 	gorillaHandlers "github.com/gorilla/handlers"
@@ -49,7 +51,6 @@ type Service struct {
 	authService    *callout.AuthorizationService
 	permManager    *perms.PermissionsManager
 	authenticators []auth.Authenticator
-	stopJWKS       []func() // stops the key set refresh of each JWKS authenticator
 	issuerKeyPair  nkeys.KeyPair
 	issuerPubKey   string
 	curveKeyPair   nkeys.KeyPair
@@ -137,24 +138,22 @@ func New(config ServiceConfig, logger *otelzap.Logger) *Service {
 
 	// Build list of authenticators in priority order
 	var authenticators []auth.Authenticator
-	var stopJWKS []func()
 
 	if err := validateOAuth2Config(config.JWKS.URL, pm.HasOAuth2Entries()); err != nil {
 		logger.Fatal("invalid OAuth2 configuration", zap.Error(err))
 	}
-	if err := validateSVIDConfig(config.SVID != nil, pm.HasSVIDEntries()); err != nil {
+	if err := validateSVIDConfig(config.SVID, config.JWKS.Issuer, pm.HasSVIDEntries()); err != nil {
 		logger.Fatal("invalid SVID configuration", zap.Error(err))
 	}
 
 	// SVID authenticator. It goes before OAuth2, which claims any NATS token,
-	// so that username "svid" always reaches it.
+	// so that username "svid" and SVID tokens always reach it.
 	if config.SVID != nil {
 		svidAuth, err := auth.NewSVIDAuthenticator(*config.SVID, pm, logger, serviceName)
 		if err != nil {
 			logger.Fatal("error initializing SVID authenticator", zap.Error(err))
 		}
 		authenticators = append(authenticators, svidAuth)
-		stopJWKS = append(stopJWKS, svidAuth.Close)
 		logger.Info("SVID authenticator enabled", zap.String("jwks_url", config.SVID.JWKSURL))
 	}
 
@@ -165,7 +164,6 @@ func New(config ServiceConfig, logger *otelzap.Logger) *Service {
 			logger.Fatal("error initializing OAuth2 authenticator", zap.Error(err))
 		}
 		authenticators = append(authenticators, oauth2Auth)
-		stopJWKS = append(stopJWKS, oauth2Auth.Close)
 		logger.Info("OAuth2 authenticator enabled", zap.String("jwks_url", config.JWKS.URL))
 	}
 
@@ -214,7 +212,6 @@ func New(config ServiceConfig, logger *otelzap.Logger) *Service {
 		rootRouter:     rootRouter,
 		permManager:    pm,
 		authenticators: authenticators,
-		stopJWKS:       stopJWKS,
 		issuerKeyPair:  issuerKeyPair,
 		issuerPubKey:   issuerPubKey,
 		curveKeyPair:   curveKeyPair,
@@ -233,9 +230,17 @@ func validateOAuth2Config(jwksURL string, hasOAuth2Entries bool) error {
 
 // validateSVIDConfig rejects SVID permission entries when no svid block
 // registers the SVID authenticator. Without it, no connection can match them.
-func validateSVIDConfig(svidConfigured bool, hasSVIDEntries bool) error {
-	if hasSVIDEntries && !svidConfigured {
-		return errors.New("permissions define SVID entries but the svid block is not set")
+// It also rejects an SVID issuer that OAuth2 uses, because NATS tokens are
+// routed by issuer.
+func validateSVIDConfig(svid *auth.SVIDConfig, oauth2Issuer string, hasSVIDEntries bool) error {
+	if svid == nil {
+		if hasSVIDEntries {
+			return errors.New("permissions define SVID entries but the svid block is not set")
+		}
+		return nil
+	}
+	if oauth2Issuer != "" && slices.Contains(svid.Issuers, oauth2Issuer) {
+		return fmt.Errorf("svid issuer %q is also the jwks issuer", oauth2Issuer)
 	}
 	return nil
 }
@@ -255,6 +260,16 @@ func newHTTPServer(addr string, handler http.Handler, logger *zap.Logger) *http.
 // Run starts the service and gracefully shuts it down when ctx is canceled.
 // HTTP shutdown is limited to five seconds.
 func (s *Service) Run(ctx context.Context) error {
+	defer func() {
+		for _, authenticator := range s.authenticators {
+			if closer, ok := authenticator.(io.Closer); ok {
+				if err := closer.Close(); err != nil {
+					s.logger.Error("error closing authenticator", zap.Error(err))
+				}
+			}
+		}
+	}()
+
 	// =================================================
 	// Put unauthenticated health routes here.
 	// =================================================
@@ -346,10 +361,6 @@ func (s *Service) Run(ctx context.Context) error {
 	// Close permissions manager
 	if err := s.permManager.Close(); err != nil {
 		s.logger.Error("error closing permissions manager", zap.Error(err))
-	}
-
-	for _, stop := range s.stopJWKS {
-		stop()
 	}
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

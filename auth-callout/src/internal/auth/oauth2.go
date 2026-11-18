@@ -206,8 +206,9 @@ func (o *OAuth2Authenticator) TryAuthenticate(ctx context.Context, rc *natsjwt.A
 }
 
 // Close cleans up resources
-func (o *OAuth2Authenticator) Close() {
+func (o *OAuth2Authenticator) Close() error {
 	if o.cancel != nil {
 		o.cancel()
 	}
+	return nil
 }

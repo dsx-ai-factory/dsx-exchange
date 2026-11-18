@@ -83,15 +83,10 @@ certificate, and client key supplied by the operator.
 
 ### Connecting With a DSX Workload Identity
 
-A workload that has a DSX workload identity can connect with its DSX JWT-SVID
+A workload with a DSX workload identity can connect with its DSX JWT-SVID
 instead of an OAuth2 client secret. Ask the operator to add an `svid` rule for
-your service and role. The rule sets the topics that your workload can use. For
-the rule fields, refer to
-[Authentication](authentication.md#dsx-workload-identity-jwt-svid).
-
-Get a DSX JWT-SVID with the audience `dsx-exchange` from the workload identity
-of your platform. For how to get the token, refer to the documentation of your
-platform. Then connect with the username `svid` and the token as the password:
+your service and role. Get a token with the audience `dsx-exchange` from your
+platform, then connect with the username `svid` and the token as the password:
 
 ```bash
 DSX_TOKEN="$(cat /path/to/dsx-token)" # Use the path from your platform's documentation.
@@ -101,32 +96,9 @@ mosquitto_pub \
   -u svid -P "${DSX_TOKEN}"
 ```
 
-Each token is valid for a few minutes only. The broker checks the token only
-when the client connects. Your application must read the token again before
-each connect and each reconnect. Do not keep the token from the first connect,
-because it expires after a few minutes. Use the credentials callback of your
-MQTT SDK when it has one. The following example uses `SetCredentialsProvider`
-in Eclipse Paho Go:
-
-```go
-// The platform provides the token file. Use the path from its documentation.
-const tokenPath = "/path/to/dsx-token"
-
-opts := mqtt.NewClientOptions().
-	AddBroker(brokerURL).
-	SetClientID(clientID).
-	SetConnectRetry(true).
-	SetAutoReconnect(true).
-	// Paho calls the provider before each connect and reconnect.
-	// The broker refuses an empty or unreadable token, so Paho retries until the platform writes the file.
-	SetCredentialsProvider(func() (string, string) {
-		token, err := os.ReadFile(tokenPath)
-		if err != nil {
-			log.Printf("read DSX token: %v", err)
-		}
-		return "svid", strings.TrimSpace(string(token))
-	})
-```
+NATS clients can also send the token as a NATS token. The token expires after a
+few minutes and is checked only at connect, so read it again before each connect
+and reconnect, for example with Paho's `SetCredentialsProvider`.
 
 ## Use QoS 0 and Reconcile
 
