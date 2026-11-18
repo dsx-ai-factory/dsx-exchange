@@ -21,8 +21,9 @@ import (
 	"github.com/NVIDIA/dsx-exchange/auth-callout/src/internal/observability/metrics"
 )
 
-// svidUsername routes a username and password connection, such as an MQTT
-// client's, to the SVID authenticator. The password carries the JWT-SVID.
+// svidUsername routes an MQTT client's username and password connection to the
+// SVID authenticator. The password carries the JWT-SVID. NATS clients send the
+// JWT-SVID as a token instead.
 const svidUsername = "svid"
 
 // roleResourceType marks the dsx.nvidia.com/resource entry that names the
@@ -145,10 +146,10 @@ func NewSVIDAuthenticator(cfg SVIDConfig, pm *config.PermissionsManager, logger 
 	}, nil
 }
 
-// CanAuthenticate claims every connection with username "svid", with or
+// CanAuthenticate claims every MQTT connection with username "svid", with or
 // without a token, and every NATS token from a trusted SVID issuer.
 func (s *SVIDAuthenticator) CanAuthenticate(rc *natsjwt.AuthorizationRequestClaims) bool {
-	if rc.ConnectOptions.Username == svidUsername {
+	if rc.ConnectOptions.Username == svidUsername && rc.ClientInformation.Type == "mqtt" {
 		return true
 	}
 	return rc.ConnectOptions.Token != "" && s.hasTrustedIssuer(rc.ConnectOptions.Token)

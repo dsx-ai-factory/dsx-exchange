@@ -219,14 +219,16 @@ func TestSVIDCanAuthenticate(t *testing.T) {
 	untrusted := signToken(t, gojwt.SigningMethodES256, fixture.ecKey, testSVIDKID, otherIssuer)
 
 	tests := []struct {
-		name     string
-		username string
-		password string
-		token    string
-		want     bool
+		name       string
+		clientType string
+		username   string
+		password   string
+		token      string
+		want       bool
 	}{
-		{name: "svid username with token", username: "svid", password: "a.b.c", want: true},
-		{name: "svid username without token", username: "svid", want: true},
+		{name: "mqtt svid username with token", clientType: "mqtt", username: "svid", password: "a.b.c", want: true},
+		{name: "mqtt svid username without token", clientType: "mqtt", username: "svid", want: true},
+		{name: "nats svid username", clientType: "nats", username: "svid", password: "a.b.c"},
 		{name: "oauth2 username", username: "oauthtoken", password: "a.b.c"},
 		{name: "nats token from a trusted issuer", token: trusted, want: true},
 		{name: "nats token from another issuer", token: untrusted},
@@ -237,6 +239,7 @@ func TestSVIDCanAuthenticate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			rc := &jwt.AuthorizationRequestClaims{}
+			rc.ClientInformation.Type = tt.clientType
 			rc.ConnectOptions.Username = tt.username
 			rc.ConnectOptions.Password = tt.password
 			rc.ConnectOptions.Token = tt.token

@@ -98,7 +98,7 @@ mosquitto_pub \
   -u svid -P "${DSX_TOKEN}"
 ```
 
-NATS clients can also send the token as a NATS token. The token expires after a
+NATS clients send the token as a NATS token. The token expires after a
 few minutes and is checked only at connect, so read it again before each connect
 and reconnect, for example with Paho's `SetCredentialsProvider`.
 

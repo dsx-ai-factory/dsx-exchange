@@ -67,8 +67,8 @@ observability:
 ### SVID Config
 
 The optional `svid` block enables DSX JWT-SVID authentication. MQTT clients
-connect with the username `svid` and the token as the password. NATS clients can
-also send the token as a NATS token.
+connect with the username `svid` and the token as the password. NATS clients
+send the token as a NATS token.
 
 | Key | Description |
 |-----|-------------|

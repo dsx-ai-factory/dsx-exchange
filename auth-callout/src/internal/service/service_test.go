@@ -298,17 +298,6 @@ func TestSVIDConnectionsThroughAuthCallout(t *testing.T) {
 		return tokenExpiringAt(role, time.Now().Add(5*time.Minute))
 	}
 
-	t.Run("NATS client with username svid", func(t *testing.T) {
-		nc, _ := connectWithAsyncErrors(t, natsServer.ClientURL(), nats.UserInfo("svid", token("svid-test")))
-
-		sub, err := nc.SubscribeSync("svid.test.hello")
-		require.NoError(t, err)
-		require.NoError(t, nc.Publish("svid.test.hello", []byte("hi")))
-		msg, err := sub.NextMsg(2 * time.Second)
-		require.NoError(t, err)
-		assert.Equal(t, "hi", string(msg.Data))
-	})
-
 	// OAuth2 is on too, so this also shows that SVID claims its own tokens.
 	t.Run("NATS client with a token", func(t *testing.T) {
 		nc, _ := connectWithAsyncErrors(t, natsServer.ClientURL(), nats.Token(token("svid-test")))
@@ -341,7 +330,7 @@ func TestSVIDConnectionsThroughAuthCallout(t *testing.T) {
 	})
 
 	t.Run("MQTT client publishes to an allowed topic", func(t *testing.T) {
-		nc, _ := connectWithAsyncErrors(t, natsServer.ClientURL(), nats.UserInfo("svid", token("svid-test")))
+		nc, _ := connectWithAsyncErrors(t, natsServer.ClientURL(), nats.Token(token("svid-test")))
 		sub, err := nc.SubscribeSync("svid.test.mqtt")
 		require.NoError(t, err)
 		require.NoError(t, nc.Flush())
@@ -361,7 +350,7 @@ func TestSVIDConnectionsThroughAuthCallout(t *testing.T) {
 	})
 
 	t.Run("publish outside allowed subjects is denied", func(t *testing.T) {
-		nc, asyncErrors := connectWithAsyncErrors(t, natsServer.ClientURL(), nats.UserInfo("svid", token("svid-test")))
+		nc, asyncErrors := connectWithAsyncErrors(t, natsServer.ClientURL(), nats.Token(token("svid-test")))
 
 		require.NoError(t, nc.Publish("other.hello", []byte("hi")))
 		require.NoError(t, nc.Flush())
@@ -381,7 +370,7 @@ func TestSVIDConnectionsThroughAuthCallout(t *testing.T) {
 		expiresAt := time.Now().Truncate(time.Second).Add(3 * time.Second)
 		shortLived := tokenExpiringAt("svid-test", expiresAt)
 		nc, asyncErrors := connectWithAsyncErrors(t, natsServer.ClientURL(),
-			nats.UserInfo("svid", shortLived), nats.NoReconnect())
+			nats.Token(shortLived), nats.NoReconnect())
 		sub, err := nc.SubscribeSync("svid.test.after-expiry")
 		require.NoError(t, err)
 
@@ -395,7 +384,7 @@ func TestSVIDConnectionsThroughAuthCallout(t *testing.T) {
 		assert.True(t, nc.IsConnected())
 		assert.Empty(t, asyncErrors)
 
-		reconnect, err := nats.Connect(natsServer.ClientURL(), nats.UserInfo("svid", shortLived), nats.Timeout(2*time.Second))
+		reconnect, err := nats.Connect(natsServer.ClientURL(), nats.Token(shortLived), nats.Timeout(2*time.Second))
 		if reconnect != nil {
 			reconnect.Close()
 		}
@@ -409,27 +398,16 @@ func TestSVIDConnectionsThroughAuthCallout(t *testing.T) {
 	})
 
 	t.Run("role without a rule is refused", func(t *testing.T) {
-		nc, err := nats.Connect(natsServer.ClientURL(), nats.UserInfo("svid", token("no-rule")), nats.Timeout(2*time.Second))
+		nc, err := nats.Connect(natsServer.ClientURL(), nats.Token(token("no-rule")), nats.Timeout(2*time.Second))
 		if nc != nil {
 			nc.Close()
 		}
 		require.ErrorIs(t, err, nats.ErrAuthorization)
 	})
 
-	t.Run("svid username without a token is refused", func(t *testing.T) {
-		nc, err := nats.Connect(natsServer.ClientURL(), nats.UserInfo("svid", ""), nats.Timeout(2*time.Second))
-		if nc != nil {
-			nc.Close()
-		}
-		require.ErrorIs(t, err, nats.ErrAuthorization)
-	})
-
-	t.Run("invalid token is refused", func(t *testing.T) {
-		nc, err := nats.Connect(natsServer.ClientURL(), nats.UserInfo("svid", "not-a-jwt"), nats.Timeout(2*time.Second))
-		if nc != nil {
-			nc.Close()
-		}
-		require.ErrorIs(t, err, nats.ErrAuthorization)
+	t.Run("MQTT client without a token is refused", func(t *testing.T) {
+		_, rc := mqttConnect(t, mqttAddr(t, natsServer), "svid-mqtt-no-token", "svid", "")
+		assert.NotEqual(t, byte(0), rc, "CONNACK return code")
 	})
 }
 

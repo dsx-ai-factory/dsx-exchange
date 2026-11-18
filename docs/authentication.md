@@ -52,7 +52,7 @@ auth-callout:
 
 ### DSX Workload Identity (JWT-SVID)
 
-Workloads with a DSX workload identity connect with their DSX JWT-SVID. MQTT clients use the username `svid` and the token as the password. NATS clients can also send the token as a NATS token. The auth-callout verifies the token via the Identity Keys JWKS and matches its tenant, region, service, partition, and role claims exactly to an `svid` rule. A rule without `role` matches only tokens without a role.
+Workloads with a DSX workload identity connect with their DSX JWT-SVID. MQTT clients use the username `svid` and the token as the password. NATS clients send the token as a NATS token. The auth-callout verifies the token via the Identity Keys JWKS and matches its tenant, region, service, partition, and role claims exactly to an `svid` rule. A rule without `role` matches only tokens without a role.
 
 The token is checked only when the client connects. To remove access, change the rule, wait until each auth-callout replica logs `Config reloaded successfully`, and then disconnect the client.
 
