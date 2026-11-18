@@ -166,7 +166,7 @@ jobs:
     runs-on: linux-amd64-cpu4
     steps:
       - uses: actions/checkout@v4
-      - uses: dsx-ai-factory/dsx-github-actions/.github/actions/docker-build@0969f64c3efa9e757135cbf457ea13cde4c3fa38 # v1.17.0
+      - uses: dsx-ai-factory/dsx-github-actions/.github/actions/docker-build@fdbbb35c9f44819507caaa62ee472e9dad61f7e0 # v1.35.2
         with:
           image: dsx-agentgateway-bridge
           tags: ci-validation
@@ -229,7 +229,7 @@ jobs:
           dockerfile: auth-callout/build/package/Dockerfile
           platforms: linux/amd64
           push: "false"
-      - uses: dsx-ai-factory/dsx-github-actions/.github/actions/security-container-scan@0969f64c3efa9e757135cbf457ea13cde4c3fa38 # v1.17.0
+      - uses: dsx-ai-factory/dsx-github-actions/.github/actions/security-container-scan@fdbbb35c9f44819507caaa62ee472e9dad61f7e0 # v1.35.2
         with:
           image: dsx-exchange-auth-callout:scan-validation
 

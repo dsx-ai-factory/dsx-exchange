@@ -24,6 +24,10 @@ jobs:
       contents: read
       actions: read
       deployments: read
-    uses: dsx-ai-factory/dsx-github-actions/.github/workflows/promote-rc.yml@c5609021216442ef4f398111512834632c30d41d
+    uses: dsx-ai-factory/dsx-github-actions/.github/workflows/promote-rc.yml@fdbbb35c9f44819507caaa62ee472e9dad61f7e0 # v1.35.2
     with:
       rc_version: ${{ inputs.rc_version }}
+    secrets:
+      RC_PROMOTION_APP_PRIVATE_KEY: ${{ secrets.RC_PROMOTION_APP_PRIVATE_KEY }}
+      RC_PROMOTION_SOURCE_NGC_KEY: ${{ secrets.RC_PROMOTION_SOURCE_NGC_KEY }}
+      RC_PROMOTION_DESTINATION_NGC_KEY: ${{ secrets.RC_PROMOTION_DESTINATION_NGC_KEY }}
