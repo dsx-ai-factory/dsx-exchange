@@ -142,7 +142,7 @@ func New(config ServiceConfig, logger *otelzap.Logger) *Service {
 	if err := validateOAuth2Config(config.JWKS.URL, pm.HasOAuth2Entries()); err != nil {
 		logger.Fatal("invalid OAuth2 configuration", zap.Error(err))
 	}
-	if err := validateSVIDConfig(config.SVID, config.JWKS.Issuer, pm.HasSVIDEntries()); err != nil {
+	if err := validateSVIDConfig(config.SVID, config.JWKS, pm.HasSVIDEntries()); err != nil {
 		logger.Fatal("invalid SVID configuration", zap.Error(err))
 	}
 
@@ -232,15 +232,15 @@ func validateOAuth2Config(jwksURL string, hasOAuth2Entries bool) error {
 // registers the SVID authenticator. Without it, no connection can match them.
 // It also rejects an SVID issuer that OAuth2 uses, because NATS tokens are
 // routed by issuer.
-func validateSVIDConfig(svid *auth.SVIDConfig, oauth2Issuer string, hasSVIDEntries bool) error {
+func validateSVIDConfig(svid *auth.SVIDConfig, jwks JWKSConfig, hasSVIDEntries bool) error {
 	if svid == nil {
 		if hasSVIDEntries {
 			return errors.New("permissions define SVID entries but the svid block is not set")
 		}
 		return nil
 	}
-	if oauth2Issuer != "" && slices.Contains(svid.Issuers, oauth2Issuer) {
-		return fmt.Errorf("svid issuer %q is also the jwks issuer", oauth2Issuer)
+	if jwks.URL != "" && slices.Contains(svid.Issuers, jwks.Issuer) {
+		return fmt.Errorf("svid issuer %q is also the jwks issuer", jwks.Issuer)
 	}
 	return nil
 }

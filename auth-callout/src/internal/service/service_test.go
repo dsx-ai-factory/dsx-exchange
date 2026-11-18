@@ -160,7 +160,7 @@ func TestValidateSVIDConfig(t *testing.T) {
 	tests := []struct {
 		name           string
 		svid           *auth.SVIDConfig
-		oauth2Issuer   string
+		jwks           JWKSConfig
 		hasSVIDEntries bool
 		wantErr        string
 	}{
@@ -168,12 +168,13 @@ func TestValidateSVIDConfig(t *testing.T) {
 		{name: "svid entries with svid block", svid: svid, hasSVIDEntries: true},
 		{name: "svid block without svid entries", svid: svid},
 		{name: "neither configured"},
-		{name: "different oauth2 issuer", svid: svid, oauth2Issuer: "https://oauth2.example.com"},
-		{name: "shared issuer", svid: svid, oauth2Issuer: "https://svid.example.com", wantErr: "also the jwks issuer"},
+		{name: "different oauth2 issuer", svid: svid, jwks: JWKSConfig{URL: "https://oauth2.example.com/jwks", Issuer: "https://oauth2.example.com"}},
+		{name: "shared issuer", svid: svid, jwks: JWKSConfig{URL: "https://svid.example.com/jwks", Issuer: "https://svid.example.com"}, wantErr: "also the jwks issuer"},
+		{name: "shared issuer with oauth2 off", svid: svid, jwks: JWKSConfig{Issuer: "https://svid.example.com"}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			err := validateSVIDConfig(test.svid, test.oauth2Issuer, test.hasSVIDEntries)
+			err := validateSVIDConfig(test.svid, test.jwks, test.hasSVIDEntries)
 			if test.wantErr != "" {
 				require.ErrorContains(t, err, test.wantErr)
 				return

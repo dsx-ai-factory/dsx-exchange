@@ -84,9 +84,11 @@ certificate, and client key supplied by the operator.
 ### Connecting With a DSX Workload Identity
 
 A workload with a DSX workload identity can connect with its DSX JWT-SVID
-instead of an OAuth2 client secret. Ask the operator to add an `svid` rule for
-your service and role. Get a token with the audience `dsx-exchange` from your
-platform, then connect with the username `svid` and the token as the password:
+instead of an OAuth2 client secret. Ask the operator to [enable SVID
+authentication](authentication.md#dsx-workload-identity-jwt-svid) and add an
+`svid` rule for your service and role. Get a token with the audience
+`dsx-exchange` from your platform, then connect with the username `svid` and the
+token as the password:
 
 ```bash
 DSX_TOKEN="$(cat /path/to/dsx-token)" # Use the path from your platform's documentation.
