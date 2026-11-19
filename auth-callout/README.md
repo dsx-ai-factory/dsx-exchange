@@ -38,6 +38,14 @@ jwks:
     - RS256
     - ES256
 
+svid:
+  jwks-url: "https://<identity-keys-host>/.well-known/jwks.json"
+  issuers:
+    - "https://<issuer>"
+  audience: "dsx-exchange"
+  signing-algorithms:
+    - ES256
+
 mtls:
   ca-path: "/etc/ssl/certs/ca.crt"
 
@@ -55,6 +63,20 @@ observability:
   tracing:
     enabled: false
 ```
+
+### SVID Config
+
+The optional `svid` block enables DSX JWT-SVID authentication. MQTT clients
+connect with the username `svid` and the token as the password. NATS clients
+send the token as a NATS token.
+
+| Key | Description |
+|-----|-------------|
+| `jwks-url` | Identity Keys JWKS endpoint |
+| `allow-insecure` | Allows an HTTP `jwks-url` |
+| `issuers` | Accepted token issuers |
+| `audience` | Required token audience |
+| `signing-algorithms` | Accepted signing algorithms |
 
 ### NKey Seeds
 
@@ -79,8 +101,9 @@ Client mappings in `permissions.json`. Each auth type (`oauth2`, `mtls`, `nkey`)
 is a map of client entries.
 
 **Environment Variable Expansion**: String values support `${VAR}` syntax for
-fields like `public_key`, `account`, `identity`, `subject`, and `azp`. JSON
-keys are not expanded, just values.
+fields like `public_key`, `account`, `identity`, `subject`, `azp`, and the
+`svid` fields `tenant`, `region`, `service`, `partition`, and `role`. JSON keys
+are not expanded, just values.
 
 ```json
 {
@@ -101,6 +124,20 @@ keys are not expanded, just values.
       "permissions": {
         "pub": { "allow": ["sensors.>"] },
         "sub": { "allow": ["commands.>"] }
+      }
+    }
+  },
+  "svid": {
+    "dsx-svid-test": {
+      "tenant": "tenant-1",
+      "region": "region-1",
+      "service": "dsx",
+      "partition": "example.com",
+      "role": "svid-test",
+      "account": "CSC",
+      "permissions": {
+        "pub": { "allow": ["svid.test.>"] },
+        "sub": { "allow": ["svid.test.>"] }
       }
     }
   },
@@ -129,6 +166,7 @@ keys are not expanded, just values.
 | `oauth2` | `azp` or `subject` | JWT token validated via JWKS |
 | `mtls` | `identity` | X.509 certificate Common Name |
 | `nkey` | `public_key` | NATS NKey public key |
+| `svid` | `tenant`, `region`, `service`, `partition`, `role` | DSX JWT-SVID claims validated via JWKS |
 | `noauth` | (none) | Anonymous access fallback |
 
 Subject wildcards: `*` matches one token, `>` matches one or more tokens.
@@ -194,6 +232,8 @@ Prometheus metrics at `http://auth-callout.127-0-0-1.nip.io:9090/metrics`.
 | `auth_requests_total` | counter | Total NATS auth callout requests |
 | `auth_errors_total` | counter | Total NATS auth callout errors |
 | `auth_request_duration_seconds` | histogram | Duration of auth requests |
+| `auth_svid_attempts_total` | counter | SVID authentication attempts |
+| `auth_svid_failures_total` | counter | SVID authentication failures by `reason`: `missing_token`, `invalid_token`, `token_expired`, `invalid_audience`, `invalid_issuer`, `invalid_claims`, `no_rule` |
 | `auth_oauth2_attempts_total` | counter | OAuth2 authentication attempts |
 | `auth_oauth2_failures_total` | counter | OAuth2 authentication failures |
 | `auth_mtls_attempts_total` | counter | mTLS authentication attempts |

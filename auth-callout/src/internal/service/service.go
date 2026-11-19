@@ -7,8 +7,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
+	"slices"
 	"time"
 
 	gorillaHandlers "github.com/gorilla/handlers"
@@ -60,6 +62,7 @@ type ServiceConfig struct {
 	Observability obsconfig.ObservabilityConfig `koanf:"observability"`
 	NATS          NATSConfig                    `koanf:"nats"`
 	JWKS          JWKSConfig                    `koanf:"jwks"`
+	SVID          *auth.SVIDConfig              `koanf:"svid"`
 	MTLS          MTLSConfig                    `koanf:"mtls"`
 	Permissions   PermissionsFileConfig         `koanf:"permissions"`
 }
@@ -139,6 +142,20 @@ func New(config ServiceConfig, logger *otelzap.Logger) *Service {
 	if err := validateOAuth2Config(config.JWKS.URL, pm.HasOAuth2Entries()); err != nil {
 		logger.Fatal("invalid OAuth2 configuration", zap.Error(err))
 	}
+	if err := validateSVIDConfig(config.SVID, config.JWKS, pm.HasSVIDEntries()); err != nil {
+		logger.Fatal("invalid SVID configuration", zap.Error(err))
+	}
+
+	// SVID authenticator. It goes before OAuth2, which claims any NATS token,
+	// so that username "svid" and SVID tokens always reach it.
+	if config.SVID != nil {
+		svidAuth, err := auth.NewSVIDAuthenticator(*config.SVID, pm, logger, serviceName)
+		if err != nil {
+			logger.Fatal("error initializing SVID authenticator", zap.Error(err))
+		}
+		authenticators = append(authenticators, svidAuth)
+		logger.Info("SVID authenticator enabled", zap.String("jwks_url", config.SVID.JWKSURL))
+	}
 
 	// OAuth2 authenticator
 	if config.JWKS.URL != "" {
@@ -211,6 +228,23 @@ func validateOAuth2Config(jwksURL string, hasOAuth2Entries bool) error {
 	return nil
 }
 
+// validateSVIDConfig rejects SVID permission entries when no svid block
+// registers the SVID authenticator. Without it, no connection can match them.
+// It also rejects an SVID issuer that OAuth2 uses, because NATS tokens are
+// routed by issuer.
+func validateSVIDConfig(svid *auth.SVIDConfig, jwks JWKSConfig, hasSVIDEntries bool) error {
+	if svid == nil {
+		if hasSVIDEntries {
+			return errors.New("permissions define SVID entries but the svid block is not set")
+		}
+		return nil
+	}
+	if jwks.URL != "" && slices.Contains(svid.Issuers, jwks.Issuer) {
+		return fmt.Errorf("svid issuer %q is also the jwks issuer", jwks.Issuer)
+	}
+	return nil
+}
+
 func newHTTPServer(addr string, handler http.Handler, logger *zap.Logger) *http.Server {
 	return &http.Server{
 		Addr:              addr,
@@ -226,6 +260,16 @@ func newHTTPServer(addr string, handler http.Handler, logger *zap.Logger) *http.
 // Run starts the service and gracefully shuts it down when ctx is canceled.
 // HTTP shutdown is limited to five seconds.
 func (s *Service) Run(ctx context.Context) error {
+	defer func() {
+		for _, authenticator := range s.authenticators {
+			if closer, ok := authenticator.(io.Closer); ok {
+				if err := closer.Close(); err != nil {
+					s.logger.Error("error closing authenticator", zap.Error(err))
+				}
+			}
+		}
+	}()
+
 	// =================================================
 	// Put unauthenticated health routes here.
 	// =================================================
