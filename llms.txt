@@ -10,7 +10,7 @@ DSX Exchange is the integration layer within DSX OS that connects AI factory sub
 - `auth-callout/`: Go service for NATS auth callout — OAuth2/JWKS, mTLS, NKey, and no-auth profiles
 - `deploy/`: Umbrella Helm chart (`nats-event-bus`) bundling NATS, NACK, auth-callout, and Surveyor as subcharts
 - `local/`: Kind-based evaluation environment, MQTT functional/performance tests, benchmark tooling
-- `fern/`: Fern docs configuration — renders `docs/` as the hosted documentation site
+- `.github/fern-docs.yml`: Fern docs configuration — renders `docs/` as the hosted documentation site
 - `docs/`: Canonical documentation (architecture, pre-deployment, deployment, authentication, operations, testing, BMS integration, integrator quickstart)
 
 ## Key Concepts
