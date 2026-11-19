@@ -98,10 +98,6 @@ mosquitto_pub \
   -u svid -P "${DSX_TOKEN}"
 ```
 
-NATS clients send the token as a NATS token. The token expires after a
-few minutes and is checked only at connect, so read it again before each connect
-and reconnect, for example with Paho's `SetCredentialsProvider`.
-
 ## Use QoS 0 and Reconcile
 
 DSX integration contracts use QoS 0. Model all operational data as replaceable
