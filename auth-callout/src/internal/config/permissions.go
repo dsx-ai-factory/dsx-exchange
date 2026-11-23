@@ -8,7 +8,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"os"
+	"slices"
 	"sync/atomic"
 	"time"
 
@@ -49,6 +51,22 @@ type NKeyEntry struct {
 	Permissions jwt.Permissions `json:"permissions,omitempty"`
 }
 
+// SVIDKey is the DSX workload identity that an SVID entry matches exactly
+type SVIDKey struct {
+	Tenant    string `json:"tenant"`
+	Region    string `json:"region"`
+	Service   string `json:"service"`
+	Partition string `json:"partition"`
+	Role      string `json:"role,omitempty"`
+}
+
+// SVIDEntry represents a DSX JWT-SVID workload configuration
+type SVIDEntry struct {
+	SVIDKey
+	Account     string          `json:"account"`
+	Permissions jwt.Permissions `json:"permissions,omitempty"`
+}
+
 // NoAuthEntry represents a no-authentication user configuration
 type NoAuthEntry struct {
 	Account     string          `json:"account"`
@@ -60,6 +78,7 @@ type PermissionsConfig struct {
 	OAuth2 map[string]*OAuth2Entry `json:"oauth2,omitempty"` // name -> entry
 	MTLS   map[string]*MTLSEntry   `json:"mtls,omitempty"`   // name -> entry
 	NKey   map[string]*NKeyEntry   `json:"nkey,omitempty"`   // name -> entry
+	SVID   map[string]*SVIDEntry   `json:"svid,omitempty"`   // name -> entry
 	NoAuth *NoAuthEntry            `json:"noauth,omitempty"` // optional no-auth fallback
 }
 
@@ -68,6 +87,7 @@ type PermissionsManager struct {
 	oauth2Lookup  atomic.Pointer[map[oauth2Key]oauth2UserProfile] // key -> profile with scope
 	mtlsLookup    atomic.Pointer[map[string]UserProfile]          // identity -> profile
 	nkeyLookup    atomic.Pointer[map[string]UserProfile]          // public_key -> profile
+	svidLookup    atomic.Pointer[map[SVIDKey]UserProfile]         // DSX identity -> profile
 	noauthProfile atomic.Pointer[UserProfile]                     // optional no-auth profile
 	stopWatch     context.CancelFunc
 	watchDone     chan struct{}
@@ -202,6 +222,11 @@ func (pm *PermissionsManager) load(data []byte) error {
 		}
 	}
 
+	svidLookup, err := buildSVIDLookup(config.SVID)
+	if err != nil {
+		return err
+	}
+
 	if config.NoAuth != nil {
 		account := os.ExpandEnv(config.NoAuth.Account)
 		noauthProfile := UserProfile{
@@ -218,6 +243,7 @@ func (pm *PermissionsManager) load(data []byte) error {
 	pm.oauth2Lookup.Store(&oauth2Lookup)
 	pm.mtlsLookup.Store(&mtlsLookup)
 	pm.nkeyLookup.Store(&nkeyLookup)
+	pm.svidLookup.Store(&svidLookup)
 
 	noauthStr := "disabled"
 	if config.NoAuth != nil {
@@ -229,11 +255,47 @@ func (pm *PermissionsManager) load(data []byte) error {
 			zap.Int("oauth2_count", len(oauth2Lookup)),
 			zap.Int("mtls_count", len(mtlsLookup)),
 			zap.Int("nkey_count", len(nkeyLookup)),
+			zap.Int("svid_count", len(svidLookup)),
 			zap.String("noauth", noauthStr),
 		)
 	}
 
 	return nil
+}
+
+// buildSVIDLookup indexes SVID entries by the identity they match. Two entries
+// for the same identity fail the load rather than one silently winning.
+func buildSVIDLookup(entries map[string]*SVIDEntry) (map[SVIDKey]UserProfile, error) {
+	lookup := make(map[SVIDKey]UserProfile, len(entries))
+	owners := make(map[SVIDKey]string, len(entries))
+	// Sorted names keep the duplicate error stable across loads.
+	for _, name := range slices.Sorted(maps.Keys(entries)) {
+		entry := entries[name]
+		if entry == nil {
+			return nil, fmt.Errorf("SVID entry '%s' is empty", name)
+		}
+		key := SVIDKey{
+			Tenant:    os.ExpandEnv(entry.Tenant),
+			Region:    os.ExpandEnv(entry.Region),
+			Service:   os.ExpandEnv(entry.Service),
+			Partition: os.ExpandEnv(entry.Partition),
+			Role:      os.ExpandEnv(entry.Role),
+		}
+		account := os.ExpandEnv(entry.Account)
+		if key.Tenant == "" || key.Region == "" || key.Service == "" || key.Partition == "" || account == "" {
+			return nil, fmt.Errorf("SVID entry '%s' must set tenant, region, service, partition and account", name)
+		}
+		if owner, ok := owners[key]; ok {
+			return nil, fmt.Errorf("SVID entries '%s' and '%s' match the same identity", owner, name)
+		}
+		owners[key] = name
+		lookup[key] = UserProfile{
+			Name:        name,
+			Account:     account,
+			Permissions: entry.Permissions,
+		}
+	}
+	return lookup, nil
 }
 
 // HasOAuth2Entries reports whether the loaded permissions define any OAuth2 clients.
@@ -276,6 +338,22 @@ func (pm *PermissionsManager) GetMTLSProfile(identity string) (UserProfile, bool
 func (pm *PermissionsManager) GetNKeyProfile(publicKey string) (UserProfile, bool) {
 	lookup := pm.nkeyLookup.Load()
 	profile, ok := (*lookup)[publicKey]
+	return profile, ok
+}
+
+// HasSVIDEntries reports whether the loaded permissions define any SVID entries.
+func (pm *PermissionsManager) HasSVIDEntries() bool {
+	lookup := pm.svidLookup.Load()
+	return lookup != nil && len(*lookup) > 0
+}
+
+// GetSVIDProfile returns the user profile for a DSX workload identity
+func (pm *PermissionsManager) GetSVIDProfile(key SVIDKey) (UserProfile, bool) {
+	lookup := pm.svidLookup.Load()
+	if lookup == nil {
+		return UserProfile{}, false
+	}
+	profile, ok := (*lookup)[key]
 	return profile, ok
 }
 

@@ -24,13 +24,14 @@ setup, see [Deployment](getting-started.md).
 
 ## Authentication
 
-DSX Exchange supports three authentication modes. Choose based on your
+DSX Exchange supports four authentication modes. Choose based on your
 environment:
 
 | Mode | When to use | Credentials needed |
 |------|-------------|-------------------|
 | **noauth** | Local evaluation and debugging | None — connect without credentials |
 | **OAuth2** | Software integrations, agents, MCP | MQTT username `oauthtoken`, access token as password |
+| **SVID** | Workloads with a DSX workload identity | MQTT username `svid`, DSX JWT-SVID as password |
 | **mTLS** | BMS, OT, and device integrations | CA cert, client cert, client key |
 
 The local evaluation environment deploys with noauth enabled by default, so the
@@ -79,6 +80,23 @@ mqttx pub \
 
 For mTLS, configure the SDK's TLS options with the CA certificate, client
 certificate, and client key supplied by the operator.
+
+### Connecting With a DSX Workload Identity
+
+A workload with a DSX workload identity can connect with its DSX JWT-SVID
+instead of an OAuth2 client secret. Ask the operator to [enable SVID
+authentication](authentication.md#dsx-workload-identity-jwt-svid) and add an
+`svid` rule for your service and role. Get a token with the audience
+`dsx-exchange` from your platform, then connect with the username `svid` and the
+token as the password:
+
+```bash
+DSX_TOKEN="$(cat /path/to/dsx-token)" # Use the path from your platform's documentation.
+mosquitto_pub \
+  -h "${DSX_MQTT_HOST}" -p "${DSX_MQTT_PORT}" \
+  -t svid/test/hello -m '{"temp":22.5}' \
+  -u svid -P "${DSX_TOKEN}"
+```
 
 ## Use QoS 0 and Reconcile
 
