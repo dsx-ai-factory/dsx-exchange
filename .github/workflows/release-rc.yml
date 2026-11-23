@@ -27,7 +27,7 @@ jobs:
       !cancelled() && github.repository == 'dsx-ai-factory/dsx-exchange' &&
       (needs.dsx-component-ci.result == 'success' ||
        (needs.dsx-component-ci.result == 'skipped' && startsWith(github.ref, 'refs/heads/pull-request/')))
-    uses: dsx-ai-factory/dsx-github-actions/.github/workflows/release-candidate-publish.yml@c5609021216442ef4f398111512834632c30d41d
+    uses: dsx-ai-factory/dsx-github-actions/.github/workflows/release-candidate-publish.yml@fdbbb35c9f44819507caaa62ee472e9dad61f7e0 # v1.35.2
     permissions:
       contents: write
     with:
