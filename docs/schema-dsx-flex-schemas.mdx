@@ -149,7 +149,7 @@ Current power state for a single feed.
 | `calculated_load.unit` | string | Yes | Unit of measurement. Values: `watt`, `kilowatt`, `megawatt` |
 | `in_flight` | boolean | Yes | true if the agent is actively transitioning between power levels. |
 | `event` | string | Yes | The trigger that caused this status to be published: - target_set — a grid.loadtarget.set.v1 was received and schedule updated - start_ramp_down — constraint applied or tightened, redistribution be... |
-| `power_event_start_time` | string (date-time) | No | ISO 8601 UTC timestamp when the current power event began. null if no event is active. |
+| `power_event_start_time` | string (date-time) or null | No | ISO 8601 UTC timestamp when the current power event began. null if no event is active. |
 | `compliant` | boolean | Yes | true if the calculated load is within the active target constraint. true when no target is active. |
 
 ---

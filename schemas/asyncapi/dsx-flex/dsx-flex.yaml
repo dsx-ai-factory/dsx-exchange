@@ -436,8 +436,10 @@ components:
             - end_ramp_up — redistribution complete
             - periodic — regular heartbeat, no state change
         power_event_start_time:
-          type: string
-          format: date-time
+          oneOf:
+            - type: string
+              format: date-time
+            - type: 'null'
           description: ISO 8601 UTC timestamp when the current power event began. null if no event is active.
         compliant:
           type: boolean
